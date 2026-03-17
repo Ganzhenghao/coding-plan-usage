@@ -7,146 +7,116 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <!-- 头部 -->
-  <header class="header">
-    <h1 class="header-title">CodingPlan 用量</h1>
-    <button class="btn-icon" id="btnSettings" title="设置">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
-  </header>
+  <div class="container">
+    <header>
+      <h1>CodingPlan 用量</h1>
+      <button id="refreshBtn" class="refresh-btn" title="刷新">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+          <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+      </button>
+    </header>
 
-  <!-- Tab 栏 -->
-  <div class="tabs">
-    <button class="tab active" data-tab="glm">GLM</button>
-    <button class="tab" data-tab="minimax">MiniMax</button>
-    <div class="tab-indicator"></div>
-  </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="glm">GLM</button>
+      <button class="tab" data-tab="minimax">Minimax</button>
+    </div>
 
-  <!-- GLM 面板 -->
-  <div class="panel active" id="panel-glm">
-    <div class="skeleton-container" id="glm-skeleton">
-      <div class="skeleton-card">
-        <div class="skeleton-line w60"></div>
-        <div class="skeleton-bar"></div>
-        <div class="skeleton-line w40"></div>
+    <!-- GLM 面板 -->
+    <div id="glmPanel" class="panel active">
+      <!-- 登录提示 -->
+      <div id="glmLogin" class="login-prompt" style="display:none">
+        <p>请先登录智谱 GLM</p>
+        <button id="glmLoginBtn" class="primary-btn">前往登录</button>
       </div>
-      <div class="skeleton-card">
-        <div class="skeleton-line w60"></div>
-        <div class="skeleton-bar"></div>
-        <div class="skeleton-line w80"></div>
-      </div>
-    </div>
-    <div class="content" id="glm-content" style="display:none">
-      <!-- Token 用量卡片 -->
-      <div class="card" id="glm-token-card">
-        <div class="card-header">
-          <span class="card-title">Token 用量</span>
-          <span class="card-badge" id="glm-token-percentage">--%</span>
+      <!-- 骨架屏 -->
+      <div id="glmSkeleton" class="content">
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-line w40"></div>
         </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="glm-token-progress"></div>
-        </div>
-        <div class="card-meta">
-          <span id="glm-token-reset">下次重置: --</span>
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-line w80"></div>
         </div>
       </div>
-      <!-- 工具调用卡片 -->
-      <div class="card" id="glm-tool-card">
-        <div class="card-header">
-          <span class="card-title">工具调用</span>
-          <span class="card-badge" id="glm-tool-percentage">--%</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="glm-tool-progress"></div>
-        </div>
-        <div class="card-meta">
-          <span id="glm-tool-usage">已用 -- / --</span>
-          <span id="glm-tool-reset">下次重置: --</span>
-        </div>
-        <div class="tool-details" id="glm-tool-details"></div>
-      </div>
-    </div>
-    <!-- 错误状态 -->
-    <div class="error-container" id="glm-error" style="display:none">
-      <div class="error-icon">!</div>
-      <p class="error-msg" id="glm-error-msg"></p>
-      <button class="btn-primary" id="glm-error-btn"></button>
-    </div>
-  </div>
-
-  <!-- MiniMax 面板 -->
-  <div class="panel" id="panel-minimax">
-    <div class="skeleton-container" id="minimax-skeleton">
-      <div class="skeleton-card">
-        <div class="skeleton-line w60"></div>
-        <div class="skeleton-bar"></div>
-        <div class="skeleton-line w40"></div>
-      </div>
-      <div class="skeleton-card">
-        <div class="skeleton-line w60"></div>
-        <div class="skeleton-bar"></div>
-        <div class="skeleton-line w40"></div>
-      </div>
-    </div>
-    <div class="content" id="minimax-content" style="display:none"></div>
-    <!-- 错误状态 -->
-    <div class="error-container" id="minimax-error" style="display:none">
-      <div class="error-icon">!</div>
-      <p class="error-msg" id="minimax-error-msg"></p>
-      <button class="btn-primary" id="minimax-error-btn"></button>
-    </div>
-  </div>
-
-  <!-- 底部 -->
-  <footer class="footer">
-    <button class="btn-refresh" id="btnRefresh" title="刷新">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="23 4 23 10 17 10"/>
-        <polyline points="1 20 1 14 7 14"/>
-        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-      </svg>
-      <span>刷新</span>
-    </button>
-    <span class="update-time" id="updateTime">更新时间: --</span>
-  </footer>
-
-  <!-- 设置面板 overlay -->
-  <div class="settings-overlay" id="settingsOverlay">
-    <div class="settings-panel">
-      <div class="settings-header">
-        <h2>设置</h2>
-        <button class="btn-icon" id="btnCloseSettings">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="settings-body">
-        <div class="setting-group">
-          <label class="setting-label">MiniMax API Key</label>
-          <div class="setting-input-row">
-            <input type="password" class="setting-input" id="inputApiKey" placeholder="输入 API Key">
-            <button class="btn-toggle-visibility" id="btnToggleKey" title="显示/隐藏">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            </button>
+      <!-- 数据内容 -->
+      <div id="glmContent" class="content" style="display:none">
+        <div class="usage-card">
+          <div class="usage-header">
+            <span class="usage-label">Tokens</span>
+            <span id="glmTokensPercent" class="usage-percent">--</span>
           </div>
-          <div class="setting-actions">
-            <button class="btn-secondary" id="btnAutoGetKey">自动获取</button>
-            <button class="btn-primary" id="btnSaveKey">保存</button>
+          <div class="progress-bar">
+            <div id="glmTokensProgress" class="progress-fill"></div>
           </div>
-          <p class="setting-hint" id="keyHint"></p>
+          <div class="usage-detail">
+            <span id="glmTokensUsage">--</span>
+            <span id="glmTokensTime" class="update-time">--</span>
+          </div>
+        </div>
+        <div class="usage-card">
+          <div class="usage-header">
+            <span class="usage-label">MCP工具调用</span>
+            <span id="glmToolsPercent" class="usage-percent">--</span>
+          </div>
+          <div class="progress-bar">
+            <div id="glmToolsProgress" class="progress-fill"></div>
+          </div>
+          <div class="usage-detail">
+            <span id="glmToolsUsage">--</span>
+            <span id="glmToolsTime" class="update-time">--</span>
+          </div>
+          <div id="glmToolsDetails" class="tools-details"></div>
         </div>
       </div>
+      <!-- 错误状态 -->
+      <div id="glmError" class="error-prompt" style="display:none">
+        <p id="glmErrorMsg"></p>
+        <button id="glmErrorBtn" class="primary-btn"></button>
+      </div>
     </div>
-  </div>
 
+    <!-- MiniMax 面板 -->
+    <div id="minimaxPanel" class="panel">
+      <!-- 设置区域 -->
+      <div id="minimaxSetup" class="setup-section" style="display:none">
+        <p>请输入 Minimax API Key</p>
+        <input type="password" id="apiKeyInput" placeholder="sk-cp-xxxxxxxx" class="api-input">
+        <button id="saveApiKeyBtn" class="primary-btn">保存</button>
+        <button id="autoGetBtn" class="secondary-btn">自动获取</button>
+        <p id="setupHint" class="setup-hint"></p>
+      </div>
+      <!-- 骨架屏 -->
+      <div id="minimaxSkeleton" class="content" style="display:none">
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-line w40"></div>
+        </div>
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-line w40"></div>
+        </div>
+      </div>
+      <!-- 数据内容 -->
+      <div id="minimaxContent" class="content" style="display:none">
+        <div id="minimaxCards" class="cards-grid"></div>
+        <button id="changeApiKeyBtn" class="text-btn">修改 API Key</button>
+      </div>
+      <!-- 错误状态 -->
+      <div id="minimaxError" class="error-prompt" style="display:none">
+        <p id="minimaxErrorMsg"></p>
+        <button id="minimaxErrorBtn" class="primary-btn"></button>
+      </div>
+    </div>
+
+    <!-- 全局错误消息 -->
+    <div id="errorMsg" class="error-msg" style="display:none"></div>
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -1,46 +1,53 @@
 // CodingPlan 用量查询 - 弹窗逻辑
 
+// ========== 工具名称映射 ==========
+const TOOL_NAME_MAP = {
+  'search-prime': '搜索',
+  'web-reader': '网页读取',
+  'zread': '深度阅读',
+};
+
 // ========== DOM 元素 ==========
 const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
 
 const els = {
   // Tab
-  tabs: $$('.tab'),
-  tabContainer: $('.tabs'),
-  panels: { glm: $('#panel-glm'), minimax: $('#panel-minimax') },
+  tabs: document.querySelectorAll('.tab'),
+  glmPanel: $('#glmPanel'),
+  minimaxPanel: $('#minimaxPanel'),
   // GLM
-  glmSkeleton: $('#glm-skeleton'),
-  glmContent: $('#glm-content'),
-  glmError: $('#glm-error'),
-  glmErrorMsg: $('#glm-error-msg'),
-  glmErrorBtn: $('#glm-error-btn'),
-  glmTokenPercentage: $('#glm-token-percentage'),
-  glmTokenProgress: $('#glm-token-progress'),
-  glmTokenReset: $('#glm-token-reset'),
-  glmToolPercentage: $('#glm-tool-percentage'),
-  glmToolProgress: $('#glm-tool-progress'),
-  glmToolUsage: $('#glm-tool-usage'),
-  glmToolReset: $('#glm-tool-reset'),
-  glmToolDetails: $('#glm-tool-details'),
+  glmLogin: $('#glmLogin'),
+  glmLoginBtn: $('#glmLoginBtn'),
+  glmSkeleton: $('#glmSkeleton'),
+  glmContent: $('#glmContent'),
+  glmError: $('#glmError'),
+  glmErrorMsg: $('#glmErrorMsg'),
+  glmErrorBtn: $('#glmErrorBtn'),
+  glmTokensPercent: $('#glmTokensPercent'),
+  glmTokensProgress: $('#glmTokensProgress'),
+  glmTokensUsage: $('#glmTokensUsage'),
+  glmTokensTime: $('#glmTokensTime'),
+  glmToolsPercent: $('#glmToolsPercent'),
+  glmToolsProgress: $('#glmToolsProgress'),
+  glmToolsUsage: $('#glmToolsUsage'),
+  glmToolsTime: $('#glmToolsTime'),
+  glmToolsDetails: $('#glmToolsDetails'),
   // MiniMax
-  minimaxSkeleton: $('#minimax-skeleton'),
-  minimaxContent: $('#minimax-content'),
-  minimaxError: $('#minimax-error'),
-  minimaxErrorMsg: $('#minimax-error-msg'),
-  minimaxErrorBtn: $('#minimax-error-btn'),
-  // 底部
-  btnRefresh: $('#btnRefresh'),
-  updateTime: $('#updateTime'),
-  // 设置
-  settingsOverlay: $('#settingsOverlay'),
-  btnSettings: $('#btnSettings'),
-  btnCloseSettings: $('#btnCloseSettings'),
-  inputApiKey: $('#inputApiKey'),
-  btnToggleKey: $('#btnToggleKey'),
-  btnAutoGetKey: $('#btnAutoGetKey'),
-  btnSaveKey: $('#btnSaveKey'),
-  keyHint: $('#keyHint'),
+  minimaxSetup: $('#minimaxSetup'),
+  minimaxSkeleton: $('#minimaxSkeleton'),
+  minimaxContent: $('#minimaxContent'),
+  minimaxError: $('#minimaxError'),
+  minimaxErrorMsg: $('#minimaxErrorMsg'),
+  minimaxErrorBtn: $('#minimaxErrorBtn'),
+  minimaxCards: $('#minimaxCards'),
+  apiKeyInput: $('#apiKeyInput'),
+  saveApiKeyBtn: $('#saveApiKeyBtn'),
+  autoGetBtn: $('#autoGetBtn'),
+  changeApiKeyBtn: $('#changeApiKeyBtn'),
+  setupHint: $('#setupHint'),
+  // 全局
+  refreshBtn: $('#refreshBtn'),
+  errorMsg: $('#errorMsg'),
 };
 
 // ========== 状态 ==========
@@ -62,44 +69,46 @@ function formatTime(timestamp) {
 }
 
 function getProgressClass(percentage) {
-  if (percentage > 85) return 'danger';
-  if (percentage > 60) return 'warn';
+  if (percentage >= 90) return 'danger';
+  if (percentage >= 70) return 'warning';
   return '';
 }
 
-function setProgress(el, percentage) {
-  el.className = 'progress-fill ' + getProgressClass(percentage);
-  // 延迟设置宽度以触发动画
-  requestAnimationFrame(() => {
-    el.style.width = percentage + '%';
-  });
+function getUnitName(unit) {
+  const map = { 3: 'M', 5: '日', 4: '月' };
+  return map[unit] || '';
 }
 
-function showState(prefix, state) {
-  const skeleton = $(`#${prefix}-skeleton`);
-  const content = $(`#${prefix}-content`);
-  const error = $(`#${prefix}-error`);
-  skeleton.style.display = state === 'loading' ? 'block' : 'none';
-  content.style.display = state === 'content' ? 'block' : 'none';
-  error.style.display = state === 'error' ? 'flex' : 'none';
+function showErrorToast(msg) {
+  els.errorMsg.textContent = msg;
+  els.errorMsg.style.display = 'block';
+  setTimeout(() => {
+    els.errorMsg.style.display = 'none';
+  }, 3000);
 }
 
-function showError(prefix, msg, btnText, btnAction) {
-  showState(prefix, 'error');
-  $(`#${prefix}-error-msg`).textContent = msg;
-  const btn = $(`#${prefix}-error-btn`);
-  btn.textContent = btnText;
-  btn.onclick = btnAction;
+// ========== GLM 状态切换 ==========
+function showGLMState(state) {
+  els.glmLogin.style.display = state === 'login' ? 'block' : 'none';
+  els.glmSkeleton.style.display = state === 'loading' ? 'flex' : 'none';
+  els.glmContent.style.display = state === 'content' ? 'flex' : 'none';
+  els.glmError.style.display = state === 'error' ? 'block' : 'none';
+}
+
+// ========== MiniMax 状态切换 ==========
+function showMinimaxState(state) {
+  els.minimaxSetup.style.display = state === 'setup' ? 'block' : 'none';
+  els.minimaxSkeleton.style.display = state === 'loading' ? 'flex' : 'none';
+  els.minimaxContent.style.display = state === 'content' ? 'flex' : 'none';
+  els.minimaxError.style.display = state === 'error' ? 'block' : 'none';
 }
 
 // ========== Tab 切换 ==========
 function switchTab(tab) {
   currentTab = tab;
   els.tabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
-  els.tabContainer.dataset.active = tab;
-  Object.entries(els.panels).forEach(([key, panel]) => {
-    panel.classList.toggle('active', key === tab);
-  });
+  els.glmPanel.classList.toggle('active', tab === 'glm');
+  els.minimaxPanel.classList.toggle('active', tab === 'minimax');
   chrome.storage.local.set({ lastTab: tab });
 }
 
@@ -109,16 +118,12 @@ els.tabs.forEach((tab) => {
 
 // ========== GLM 数据获取 ==========
 async function fetchGLMData() {
-  showState('glm', 'loading');
+  showGLMState('loading');
 
   // 获取 token
   const tokenResult = await sendMessage({ type: 'getGLMToken' });
   if (!tokenResult || tokenResult.error === 'NOT_LOGGED_IN') {
-    showError('glm', '未检测到 GLM 登录状态，请先登录 bigmodel.cn', '去登录', () => {
-      chrome.tabs.create({
-        url: 'https://bigmodel.cn/login?redirect=%2Fusercenter%2Fsettings%2Faccount',
-      });
-    });
+    showGLMState('login');
     return;
   }
 
@@ -130,81 +135,93 @@ async function fetchGLMData() {
 
   if (!result || result.error) {
     const isTimeout = result && result.error === 'TIMEOUT';
-    showError(
-      'glm',
-      isTimeout ? '请求超时，请检查网络后重试' : '获取 GLM 用量失败',
-      '重试',
-      fetchGLMData
-    );
+    showGLMState('error');
+    els.glmErrorMsg.textContent = isTimeout ? '请求超时，请检查网络后重试' : '获取 GLM 用量失败';
+    els.glmErrorBtn.textContent = '重试';
+    els.glmErrorBtn.onclick = fetchGLMData;
     return;
   }
 
   const data = result.data;
   if (!data || !data.success || !data.data || !data.data.limits) {
-    showError('glm', '数据格式异常，请稍后重试', '重试', fetchGLMData);
+    showGLMState('error');
+    els.glmErrorMsg.textContent = '数据格式异常，请稍后重试';
+    els.glmErrorBtn.textContent = '重试';
+    els.glmErrorBtn.onclick = fetchGLMData;
     return;
   }
 
   renderGLMData(data.data);
-  // 缓存数据
-  chrome.storage.local.set({
-    glmCache: data.data,
-    glmCacheTime: Date.now(),
-  });
+  chrome.storage.local.set({ glmCache: data.data, glmCacheTime: Date.now() });
 }
 
 function renderGLMData(data) {
-  showState('glm', 'content');
+  showGLMState('content');
   const limits = data.limits || [];
 
   // Token 用量
   const tokenLimit = limits.find((l) => l.type === 'TOKENS_LIMIT');
   if (tokenLimit) {
     const pct = tokenLimit.percentage || 0;
-    els.glmTokenPercentage.textContent = pct + '%';
-    setProgress(els.glmTokenProgress, pct);
-    els.glmTokenReset.textContent = '下次重置: ' + formatTime(tokenLimit.nextResetTime);
+    const cls = getProgressClass(pct);
+    els.glmTokensPercent.textContent = pct + '%';
+    els.glmTokensPercent.className = 'usage-percent' + (cls ? ' ' + cls : '');
+    els.glmTokensProgress.className = 'progress-fill' + (cls ? ' ' + cls : '');
+    requestAnimationFrame(() => {
+      els.glmTokensProgress.style.width = pct + '%';
+    });
+    const unitName = getUnitName(tokenLimit.unit);
+    els.glmTokensUsage.textContent = `${tokenLimit.number || 0}/${tokenLimit.number || 0}${unitName} tokens`;
+    els.glmTokensTime.textContent = formatTime(tokenLimit.nextResetTime);
   }
 
   // 工具调用
   const toolLimit = limits.find((l) => l.type === 'TIME_LIMIT');
   if (toolLimit) {
     const pct = toolLimit.percentage || 0;
-    els.glmToolPercentage.textContent = pct + '%';
-    setProgress(els.glmToolProgress, pct);
-    els.glmToolUsage.textContent = `已用 ${toolLimit.currentValue || 0} / ${toolLimit.usage || 0}`;
-    els.glmToolReset.textContent = '下次重置: ' + formatTime(toolLimit.nextResetTime);
+    const cls = getProgressClass(pct);
+    els.glmToolsPercent.textContent = pct + '%';
+    els.glmToolsPercent.className = 'usage-percent' + (cls ? ' ' + cls : '');
+    els.glmToolsProgress.className = 'progress-fill' + (cls ? ' ' + cls : '');
+    requestAnimationFrame(() => {
+      els.glmToolsProgress.style.width = pct + '%';
+    });
+    els.glmToolsUsage.textContent = `${toolLimit.usage || 0}/${toolLimit.currentValue || 0} 次`;
+    els.glmToolsTime.textContent = formatTime(toolLimit.nextResetTime);
 
     // 工具明细
-    els.glmToolDetails.innerHTML = '';
+    els.glmToolsDetails.innerHTML = '';
     if (toolLimit.usageDetails && toolLimit.usageDetails.length > 0) {
       toolLimit.usageDetails.forEach((detail) => {
-        const item = document.createElement('div');
+        const item = document.createElement('span');
         item.className = 'tool-item';
-        item.innerHTML = `
-          <span class="tool-name">${detail.modelCode}</span>
-          <span class="tool-count">${detail.usage} 次</span>
-        `;
-        els.glmToolDetails.appendChild(item);
+        const displayName = TOOL_NAME_MAP[detail.modelCode] || detail.modelCode;
+        item.innerHTML = `<span class="tool-name">${displayName}</span> ${detail.usage}`;
+        els.glmToolsDetails.appendChild(item);
       });
     }
   }
 }
 
+// ========== GLM 登录按钮 ==========
+els.glmLoginBtn.addEventListener('click', () => {
+  chrome.tabs.create({
+    url: 'https://bigmodel.cn/login?redirect=%2Fusercenter%2Fsettings%2Faccount',
+  });
+});
+
 // ========== MiniMax 数据获取 ==========
 async function fetchMiniMaxData() {
-  showState('minimax', 'loading');
-
   // 从 storage 读取 API Key
   const stored = await chrome.storage.local.get('minimaxApiKey');
   const apiKey = stored.minimaxApiKey;
 
   if (!apiKey) {
-    showError('minimax', 'MiniMax API Key 未配置，请在设置中配置', '去设置', () => {
-      openSettings();
-    });
+    showMinimaxState('setup');
     return;
   }
+
+  showMinimaxState('loading');
 
   const result = await sendMessage({
     type: 'fetchMiniMaxUsage',
@@ -213,134 +230,104 @@ async function fetchMiniMaxData() {
 
   if (!result || result.error) {
     const isTimeout = result && result.error === 'TIMEOUT';
-    showError(
-      'minimax',
-      isTimeout ? '请求超时，请检查网络后重试' : '获取 MiniMax 用量失败',
-      '重试',
-      fetchMiniMaxData
-    );
+    showMinimaxState('error');
+    els.minimaxErrorMsg.textContent = isTimeout ? '请求超时，请检查网络后重试' : '获取 MiniMax 用量失败';
+    els.minimaxErrorBtn.textContent = '重试';
+    els.minimaxErrorBtn.onclick = fetchMiniMaxData;
     return;
   }
 
   const data = result.data;
   if (!data || data.base_resp?.status_code !== 0) {
-    showError(
-      'minimax',
-      'API Key 无效或已过期，请重新配置',
-      '去设置',
-      openSettings
-    );
+    showMinimaxState('error');
+    els.minimaxErrorMsg.textContent = 'API Key 无效或已过期，请重新配置';
+    els.minimaxErrorBtn.textContent = '重新配置';
+    els.minimaxErrorBtn.onclick = () => {
+      chrome.storage.local.remove('minimaxApiKey');
+      showMinimaxState('setup');
+    };
     return;
   }
 
   renderMiniMaxData(data);
-  chrome.storage.local.set({
-    minimaxCache: data,
-    minimaxCacheTime: Date.now(),
-  });
+  chrome.storage.local.set({ minimaxCache: data, minimaxCacheTime: Date.now() });
 }
 
 function renderMiniMaxData(data) {
-  showState('minimax', 'content');
-  const content = els.minimaxContent;
-  content.innerHTML = '';
+  showMinimaxState('content');
+  els.minimaxCards.innerHTML = '';
 
   const models = data.model_remains || [];
   if (models.length === 0) {
-    content.innerHTML = '<p style="text-align:center;color:#888;padding:20px;">暂无套餐数据</p>';
+    els.minimaxCards.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">暂无套餐数据</p>';
     return;
   }
 
   models.forEach((model) => {
     const total = model.current_interval_total_count || 0;
-    const used = model.current_interval_usage_count || 0;
-    const remaining = total - used;
+    const remaining = model.current_interval_usage_count || 0;
+    const used = total - remaining;
     const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+    const cls = getProgressClass(pct);
 
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'model-card';
     card.innerHTML = `
-      <div class="card-header">
-        <span class="card-title">${model.model_name}</span>
-        <span class="card-badge">${pct}%</span>
+      <div class="model-name">${model.model_name}</div>
+      <div class="model-stats">
+        <div class="stat-item">
+          <div class="stat-value ${cls}">${used}</div>
+          <div class="stat-label">已用</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">${total}</div>
+          <div class="stat-label">总量</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" style="color:#10b981">${remaining}</div>
+          <div class="stat-label">剩余</div>
+        </div>
       </div>
-      <div class="progress-bar">
-        <div class="progress-fill ${getProgressClass(pct)}" style="width:0%"></div>
-      </div>
-      <div class="card-meta">
-        <span>已用 ${used} / ${total}</span>
-        <span>剩余 ${remaining}</span>
+      <div class="model-progress">
+        <div class="progress-bar">
+          <div class="progress-fill ${cls}" style="width:0%"></div>
+        </div>
+        <span class="percent">${pct}%</span>
       </div>
     `;
-    content.appendChild(card);
+    els.minimaxCards.appendChild(card);
 
-    // 动画延迟
     requestAnimationFrame(() => {
       card.querySelector('.progress-fill').style.width = pct + '%';
     });
   });
 }
 
-// ========== 设置面板 ==========
-function openSettings() {
-  els.settingsOverlay.classList.add('visible');
-  // 加载已有 key
-  chrome.storage.local.get('minimaxApiKey', (stored) => {
-    if (stored.minimaxApiKey) {
-      els.inputApiKey.value = stored.minimaxApiKey;
-    }
-  });
-  els.keyHint.textContent = '';
-  els.keyHint.className = 'setting-hint';
-}
-
-function closeSettings() {
-  els.settingsOverlay.classList.remove('visible');
-}
-
-els.btnSettings.addEventListener('click', openSettings);
-els.btnCloseSettings.addEventListener('click', closeSettings);
-els.settingsOverlay.addEventListener('click', (e) => {
-  if (e.target === els.settingsOverlay) closeSettings();
-});
-
-// 显示/隐藏 API Key
-els.btnToggleKey.addEventListener('click', () => {
-  const input = els.inputApiKey;
-  input.type = input.type === 'password' ? 'text' : 'password';
-});
-
+// ========== MiniMax 设置 ==========
 // 保存 API Key
-els.btnSaveKey.addEventListener('click', () => {
-  const key = els.inputApiKey.value.trim();
+els.saveApiKeyBtn.addEventListener('click', () => {
+  const key = els.apiKeyInput.value.trim();
   if (!key) {
-    els.keyHint.textContent = '请输入 API Key';
-    els.keyHint.className = 'setting-hint error';
+    setHint('请输入 API Key', 'error');
     return;
   }
   chrome.storage.local.set({ minimaxApiKey: key }, () => {
-    els.keyHint.textContent = '保存成功';
-    els.keyHint.className = 'setting-hint success';
-    setTimeout(() => {
-      closeSettings();
-      fetchMiniMaxData();
-    }, 500);
+    setHint('保存成功', 'success');
+    setTimeout(() => fetchMiniMaxData(), 500);
   });
 });
 
 // 自动获取 API Key
-els.btnAutoGetKey.addEventListener('click', async () => {
-  els.btnAutoGetKey.disabled = true;
-  els.btnAutoGetKey.textContent = '获取中...';
-  els.keyHint.textContent = '';
-  els.keyHint.className = 'setting-hint';
+els.autoGetBtn.addEventListener('click', async () => {
+  els.autoGetBtn.disabled = true;
+  els.autoGetBtn.textContent = '获取中...';
+  setHint('', '');
 
   try {
     // 获取 cookie
     const cookieResult = await sendMessage({ type: 'getMiniMaxCookies' });
     if (!cookieResult || cookieResult.error === 'NOT_LOGGED_IN') {
-      els.keyHint.textContent = '未检测到登录状态，请先登录 MiniMax 平台';
-      els.keyHint.className = 'setting-hint error';
+      setHint('未检测到登录状态，正在跳转登录页...', 'error');
       setTimeout(() => {
         chrome.tabs.create({
           url: 'https://platform.minimaxi.com/login?redirect=%2Fuser-center%2Fpayment%2Fcoding-plan',
@@ -356,61 +343,68 @@ els.btnAutoGetKey.addEventListener('click', async () => {
     });
 
     if (!tokenResult || tokenResult.error) {
-      els.keyHint.textContent = '获取失败: ' + (tokenResult?.error || '未知错误');
-      els.keyHint.className = 'setting-hint error';
+      setHint('获取失败: ' + (tokenResult?.error || '未知错误'), 'error');
       return;
     }
 
     const data = tokenResult.data;
     if (data?.base_resp?.status_code !== 0 || !data.tokens || data.tokens.length === 0) {
-      els.keyHint.textContent = '未找到 CodingPlan API Key，请确认已开通套餐';
-      els.keyHint.className = 'setting-hint error';
+      setHint('未找到 CodingPlan API Key，请确认已开通套餐', 'error');
       return;
     }
 
     // 提取 complete_token
     const apiKey = data.tokens[0].complete_token;
-    els.inputApiKey.value = apiKey;
+    els.apiKeyInput.value = apiKey;
     chrome.storage.local.set({ minimaxApiKey: apiKey }, () => {
-      els.keyHint.textContent = '自动获取成功';
-      els.keyHint.className = 'setting-hint success';
-      setTimeout(() => {
-        closeSettings();
-        fetchMiniMaxData();
-      }, 800);
+      setHint('自动获取成功', 'success');
+      setTimeout(() => fetchMiniMaxData(), 800);
     });
   } finally {
-    els.btnAutoGetKey.disabled = false;
-    els.btnAutoGetKey.textContent = '自动获取';
+    els.autoGetBtn.disabled = false;
+    els.autoGetBtn.textContent = '自动获取';
   }
 });
+
+// 修改 API Key
+els.changeApiKeyBtn.addEventListener('click', () => {
+  els.apiKeyInput.value = '';
+  setHint('', '');
+  showMinimaxState('setup');
+  // 加载已有 key 到输入框
+  chrome.storage.local.get('minimaxApiKey', (stored) => {
+    if (stored.minimaxApiKey) {
+      els.apiKeyInput.value = stored.minimaxApiKey;
+    }
+  });
+});
+
+function setHint(msg, type) {
+  els.setupHint.textContent = msg;
+  els.setupHint.className = 'setup-hint' + (type ? ' ' + type : '');
+}
 
 // ========== 刷新 ==========
 async function refreshAll() {
   if (isRefreshing) return;
   isRefreshing = true;
-  els.btnRefresh.classList.add('loading');
+  els.refreshBtn.classList.add('loading');
 
   await Promise.all([fetchGLMData(), fetchMiniMaxData()]);
 
   isRefreshing = false;
-  els.btnRefresh.classList.remove('loading');
-  els.updateTime.textContent = '更新时间: ' + formatTime(Date.now());
+  els.refreshBtn.classList.remove('loading');
   chrome.storage.local.set({ lastUpdateTime: Date.now() });
 }
 
-els.btnRefresh.addEventListener('click', refreshAll);
+els.refreshBtn.addEventListener('click', refreshAll);
 
 // ========== 初始化 ==========
 async function init() {
-  // 恢复上次 Tab
   const stored = await chrome.storage.local.get([
     'lastTab',
     'glmCache',
-    'glmCacheTime',
     'minimaxCache',
-    'minimaxCacheTime',
-    'lastUpdateTime',
   ]);
 
   if (stored.lastTab) {
@@ -423,9 +417,6 @@ async function init() {
   }
   if (stored.minimaxCache) {
     renderMiniMaxData(stored.minimaxCache);
-  }
-  if (stored.lastUpdateTime) {
-    els.updateTime.textContent = '更新时间: ' + formatTime(stored.lastUpdateTime);
   }
 
   // 异步刷新
