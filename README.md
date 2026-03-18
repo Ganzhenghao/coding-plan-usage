@@ -2,6 +2,12 @@
 
 一款 Chrome 浏览器扩展，用于快速查询智谱 GLM 和 MiniMax 编码套餐的用量信息。
 
+## 功能截图
+
+| GLM 用量查询 | MiniMax 用量查询 | 设置页面 |
+|:---:|:---:|:---:|
+| ![GLM 用量查询](docs/img/GLM.jpg) | ![MiniMax 用量查询](docs/img/minimax.jpg) | ![设置页面](docs/img/setting.jpg) |
+
 ## 功能特性
 
 - **GLM 用量查询** — 实时查看 Tokens 消耗量和 MCP 工具调用次数，支持查看各工具（搜索、网页读取、深度阅读）的详细用量
