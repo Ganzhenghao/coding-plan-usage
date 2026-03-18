@@ -74,7 +74,7 @@ function formatTime(timestamp) {
   if (!timestamp) return '--';
   const d = new Date(timestamp);
   const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 function getProgressClass(percentage) {
@@ -155,6 +155,7 @@ async function fetchGLMData() {
 }
 
 function renderGLMData(data) {
+  console.log('[CodingPlan] GLM raw data:', JSON.stringify(data));
   showGLMState('content');
   const limits = data.limits || [];
 
@@ -170,7 +171,7 @@ function renderGLMData(data) {
     });
     const unitName = getUnitName(tokenLimit.unit);
     els.glmTokensUsage.textContent = `${tokenLimit.number || 0}/${tokenLimit.number || 0}${unitName} tokens`;
-    els.glmTokensTime.textContent = formatTime(tokenLimit.nextResetTime);
+    els.glmTokensTime.textContent = '重置时间: ' + formatTime(tokenLimit.nextResetTime);
   }
 
   const toolLimit = limits.find((l) => l.type === 'TIME_LIMIT');
@@ -184,7 +185,7 @@ function renderGLMData(data) {
       els.glmToolsProgress.style.width = pct + '%';
     });
     els.glmToolsUsage.textContent = `${toolLimit.usage || 0}/${toolLimit.currentValue || 0} 次`;
-    els.glmToolsTime.textContent = formatTime(toolLimit.nextResetTime);
+    els.glmToolsTime.textContent = '重置时间: ' + formatTime(toolLimit.nextResetTime);
 
     els.glmToolsDetails.innerHTML = '';
     if (toolLimit.usageDetails && toolLimit.usageDetails.length > 0) {
