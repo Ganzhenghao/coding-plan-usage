@@ -277,6 +277,12 @@ header h1 {
   text-align: right;
 }
 
+.model-reset-time {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
+}
+
 /* 登录提示 / 错误提示 */
 .login-prompt,
 .error-prompt {

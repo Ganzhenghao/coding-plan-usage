@@ -286,6 +286,7 @@ function renderMiniMaxData(data) {
         </div>
         <span class="percent">${pct}%</span>
       </div>
+      <div class="model-reset-time">重置时间: ${formatTime(model.end_time)}</div>
     `;
     els.minimaxCards.appendChild(card);
 
