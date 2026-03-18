@@ -5,7 +5,8 @@
   "description": "查询智谱 GLM 和 MiniMax 编码套餐的用量信息",
   "permissions": [
     "cookies",
-    "storage"
+    "storage",
+    "notifications"
   ],
   "host_permissions": [
     "https://bigmodel.cn/*",

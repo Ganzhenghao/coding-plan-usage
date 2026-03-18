@@ -54,6 +54,10 @@ const els = {
   autoRefreshToggle: $('#autoRefreshToggle'),
   autoRefreshOptions: $('#autoRefreshOptions'),
   autoRefreshInterval: $('#autoRefreshInterval'),
+  alertToggle: $('#alertToggle'),
+  alertOptions: $('#alertOptions'),
+  alertThreshold1: $('#alertThreshold1'),
+  alertThreshold2: $('#alertThreshold2'),
   // 全局
   errorMsg: $('#errorMsg'),
 };
@@ -198,6 +202,16 @@ function renderGLMData(data) {
       });
     }
   }
+
+  // 收集 GLM 用量数据进行阈值检查
+  const glmUsageItems = [];
+  if (tokenLimit) {
+    glmUsageItems.push({ name: 'GLM-Tokens', percentage: tokenLimit.percentage || 0 });
+  }
+  if (toolLimit) {
+    glmUsageItems.push({ name: 'GLM-MCP工具', percentage: toolLimit.percentage || 0 });
+  }
+  checkThresholds(glmUsageItems);
 }
 
 els.glmLoginBtn.addEventListener('click', () => {
@@ -299,10 +313,63 @@ function renderMiniMaxData(data) {
       card.querySelector('.progress-fill').style.width = pct + '%';
     });
   });
+
+  // 收集 MiniMax 用量数据进行阈值检查
+  const minimaxUsageItems = models.map((model) => {
+    const total = model.current_interval_total_count || 0;
+    const remaining = model.current_interval_usage_count || 0;
+    const used = total - remaining;
+    const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+    return { name: 'MiniMax-' + model.model_name, percentage: pct };
+  });
+  checkThresholds(minimaxUsageItems);
 }
 
 // MiniMax 未配置 Key → 跳转设置
 els.minimaxGoSettingsBtn.addEventListener('click', openSettings);
+
+// ========== 预警阈值检查 ==========
+async function checkThresholds(usageItems) {
+  const stored = await chrome.storage.local.get([
+    'alertEnabled',
+    'alertThreshold1',
+    'alertThreshold2',
+    'notifiedAlerts',
+  ]);
+
+  if (!stored.alertEnabled) return;
+
+  const threshold1 = stored.alertThreshold1 ?? 50;
+  const threshold2 = stored.alertThreshold2 ?? 80;
+  const thresholds = [threshold1, threshold2].sort((a, b) => a - b);
+  const notified = stored.notifiedAlerts || {};
+  let changed = false;
+
+  for (const item of usageItems) {
+    for (const threshold of thresholds) {
+      const key = `${item.name}-${threshold}`;
+      if (item.percentage >= threshold && !notified[key]) {
+        // 超过阈值且未通知，发送通知
+        chrome.notifications.create(key, {
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+          title: 'CodingPlan 用量预警',
+          message: `${item.name} 使用量已达 ${item.percentage}%，超过 ${threshold}% 预警线`,
+        });
+        notified[key] = true;
+        changed = true;
+      } else if (item.percentage < threshold && notified[key]) {
+        // 回落到阈值以下，清除记录
+        delete notified[key];
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    chrome.storage.local.set({ notifiedAlerts: notified });
+  }
+}
 
 // ========== 设置面板 ==========
 function openSettings() {
@@ -454,6 +521,31 @@ els.autoRefreshInterval.addEventListener('change', () => {
   }
 });
 
+// ========== 预警设置交互 ==========
+els.alertToggle.addEventListener('change', () => {
+  const enabled = els.alertToggle.checked;
+  els.alertOptions.style.display = enabled ? 'flex' : 'none';
+  chrome.storage.local.set({ alertEnabled: enabled });
+  // 关闭预警时清除已通知记录
+  if (!enabled) {
+    chrome.storage.local.set({ notifiedAlerts: {} });
+  }
+});
+
+els.alertThreshold1.addEventListener('change', () => {
+  let val = parseInt(els.alertThreshold1.value, 10);
+  val = Math.max(1, Math.min(99, val || 50));
+  els.alertThreshold1.value = val;
+  chrome.storage.local.set({ alertThreshold1: val, notifiedAlerts: {} });
+});
+
+els.alertThreshold2.addEventListener('change', () => {
+  let val = parseInt(els.alertThreshold2.value, 10);
+  val = Math.max(1, Math.min(99, val || 80));
+  els.alertThreshold2.value = val;
+  chrome.storage.local.set({ alertThreshold2: val, notifiedAlerts: {} });
+});
+
 // ========== 刷新 ==========
 async function refreshAll() {
   if (isRefreshing) return;
@@ -477,6 +569,9 @@ async function init() {
     'minimaxCache',
     'autoRefreshEnabled',
     'autoRefreshInterval',
+    'alertEnabled',
+    'alertThreshold1',
+    'alertThreshold2',
   ]);
 
   if (stored.lastTab) {
@@ -499,6 +594,18 @@ async function init() {
       els.autoRefreshInterval.value = String(stored.autoRefreshInterval);
     }
     startAutoRefresh();
+  }
+
+  // 恢复预警设置
+  if (stored.alertEnabled) {
+    els.alertToggle.checked = true;
+    els.alertOptions.style.display = 'flex';
+  }
+  if (stored.alertThreshold1 != null) {
+    els.alertThreshold1.value = stored.alertThreshold1;
+  }
+  if (stored.alertThreshold2 != null) {
+    els.alertThreshold2.value = stored.alertThreshold2;
   }
 
   // 异步刷新

@@ -156,6 +156,29 @@
                 <option value="600">10 分钟</option>
               </select>
             </div>
+            <div class="settings-row" style="margin-top:12px">
+              <span class="settings-desc">用量预警提醒</span>
+              <label class="toggle">
+                <input type="checkbox" id="alertToggle">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div id="alertOptions" class="alert-options" style="display:none">
+              <div class="threshold-row">
+                <span class="settings-desc">阈值 1</span>
+                <div class="threshold-input-wrap">
+                  <input type="number" id="alertThreshold1" class="threshold-input" min="1" max="99" value="50">
+                  <span class="threshold-suffix">%</span>
+                </div>
+              </div>
+              <div class="threshold-row">
+                <span class="settings-desc">阈值 2</span>
+                <div class="threshold-input-wrap">
+                  <input type="number" id="alertThreshold2" class="threshold-input" min="1" max="99" value="80">
+                  <span class="threshold-suffix">%</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

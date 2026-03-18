@@ -418,6 +418,7 @@ header h1 {
 
 .settings-body {
   padding: 0 16px 16px;
+
 }
 
 .settings-group {
@@ -540,6 +541,46 @@ header h1 {
 
 .settings-select:focus {
   border-color: #2563eb;
+}
+
+/* 预警阈值设置 */
+.alert-options {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.threshold-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.threshold-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.threshold-input {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #333;
+  text-align: center;
+  outline: none;
+}
+
+.threshold-input:focus {
+  border-color: #2563eb;
+}
+
+.threshold-suffix {
+  font-size: 13px;
+  color: #666;
 }
 
 /* 骨架屏 */
