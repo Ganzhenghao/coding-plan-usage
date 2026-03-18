@@ -212,8 +212,13 @@ async function fetchMiniMaxData() {
   const apiKey = stored.minimaxApiKey;
 
   if (!apiKey) {
-    showMinimaxState('nokey');
-    return;
+    // 未配置 Key，尝试自动获取一次
+    const autoKey = await autoFetchMiniMaxKey();
+    if (!autoKey) {
+      showMinimaxState('nokey');
+      return;
+    }
+    return fetchMiniMaxData(); // 获取成功后重新调用
   }
 
   showMinimaxState('loading');
@@ -340,22 +345,20 @@ els.saveApiKeyBtn.addEventListener('click', () => {
   });
 });
 
-// 自动获取 API Key
-els.autoGetBtn.addEventListener('click', async () => {
-  els.autoGetBtn.disabled = true;
-  els.autoGetBtn.textContent = '获取中...';
-  setApiKeyHint('', '');
-
+// 自动获取 API Key（静默模式返回 key 或 null，UI 模式更新界面提示）
+async function autoFetchMiniMaxKey(silent = true) {
   try {
     const cookieResult = await sendMessage({ type: 'getMiniMaxCookies' });
     if (!cookieResult || cookieResult.error === 'NOT_LOGGED_IN') {
-      setApiKeyHint('未检测到登录状态，正在跳转登录页...', 'error');
-      setTimeout(() => {
-        chrome.tabs.create({
-          url: 'https://platform.minimaxi.com/login?redirect=%2Fuser-center%2Fpayment%2Fcoding-plan',
-        });
-      }, 1000);
-      return;
+      if (!silent) {
+        setApiKeyHint('未检测到登录状态，正在跳转登录页...', 'error');
+        setTimeout(() => {
+          chrome.tabs.create({
+            url: 'https://platform.minimaxi.com/login?redirect=%2Fuser-center%2Fpayment%2Fcoding-plan',
+          });
+        }, 1000);
+      }
+      return null;
     }
 
     const tokenResult = await sendMessage({
@@ -364,25 +367,43 @@ els.autoGetBtn.addEventListener('click', async () => {
     });
 
     if (!tokenResult || tokenResult.error) {
-      setApiKeyHint('获取失败: ' + (tokenResult?.error || '未知错误'), 'error');
-      return;
+      if (!silent) {
+        setApiKeyHint('获取失败: ' + (tokenResult?.error || '未知错误'), 'error');
+      }
+      return null;
     }
 
     const data = tokenResult.data;
     if (data?.base_resp?.status_code !== 0 || !data.tokens || data.tokens.length === 0) {
-      setApiKeyHint('未找到 CodingPlan API Key，请确认已开通套餐', 'error');
-      return;
+      if (!silent) {
+        setApiKeyHint('未找到 CodingPlan API Key，请确认已开通套餐', 'error');
+      }
+      return null;
     }
 
     const apiKey = data.tokens[0].complete_token;
-    els.apiKeyInput.value = apiKey;
-    chrome.storage.local.set({ minimaxApiKey: apiKey }, () => {
+    await chrome.storage.local.set({ minimaxApiKey: apiKey });
+    return apiKey;
+  } catch {
+    return null;
+  }
+}
+
+els.autoGetBtn.addEventListener('click', async () => {
+  els.autoGetBtn.disabled = true;
+  els.autoGetBtn.textContent = '获取中...';
+  setApiKeyHint('', '');
+
+  try {
+    const apiKey = await autoFetchMiniMaxKey(false);
+    if (apiKey) {
+      els.apiKeyInput.value = apiKey;
       setApiKeyHint('自动获取成功', 'success');
       setTimeout(() => {
         closeSettings();
         fetchMiniMaxData();
       }, 800);
-    });
+    }
   } finally {
     els.autoGetBtn.disabled = false;
     els.autoGetBtn.textContent = '自动获取';
