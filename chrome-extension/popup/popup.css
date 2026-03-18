@@ -611,3 +611,26 @@ header h1 {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* 跳转详细用量按钮 */
+.go-usage-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.go-usage-btn:hover {
+  background: #e2e8f0;
+  color: #475569;
+}

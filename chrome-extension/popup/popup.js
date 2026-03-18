@@ -41,6 +41,9 @@ const els = {
   minimaxErrorMsg: $('#minimaxErrorMsg'),
   minimaxErrorBtn: $('#minimaxErrorBtn'),
   minimaxCards: $('#minimaxCards'),
+  minimaxGoUsageBtn: $('#minimaxGoUsageBtn'),
+  // GLM
+  glmGoUsageBtn: $('#glmGoUsageBtn'),
   // Header
   refreshBtn: $('#refreshBtn'),
   settingsBtn: $('#settingsBtn'),
@@ -560,6 +563,19 @@ async function refreshAll() {
 }
 
 els.refreshBtn.addEventListener('click', refreshAll);
+
+// ========== 跳转详细用量 ==========
+els.glmGoUsageBtn.addEventListener('click', () => {
+  chrome.tabs.create({
+    url: 'https://bigmodel.cn/usercenter/glm-coding/usage',
+  });
+});
+
+els.minimaxGoUsageBtn.addEventListener('click', () => {
+  chrome.tabs.create({
+    url: 'https://platform.minimaxi.com/user-center/payment/token-plan',
+  });
+});
 
 // ========== 初始化 ==========
 async function init() {
