@@ -10,11 +10,18 @@
   <div class="container">
     <header>
       <h1>CodingPlan 用量</h1>
-      <button id="refreshBtn" class="refresh-btn" title="刷新">
-        <svg viewBox="0 0 24 24" width="16" height="16">
-          <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-        </svg>
-      </button>
+      <div class="header-actions">
+        <button id="settingsBtn" class="header-btn" title="设置">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.611 3.611 0 0112 15.6z"/>
+          </svg>
+        </button>
+        <button id="refreshBtn" class="header-btn" title="刷新">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
     <div class="tabs">
@@ -24,12 +31,10 @@
 
     <!-- GLM 面板 -->
     <div id="glmPanel" class="panel active">
-      <!-- 登录提示 -->
       <div id="glmLogin" class="login-prompt" style="display:none">
         <p>请先登录智谱 GLM</p>
         <button id="glmLoginBtn" class="primary-btn">前往登录</button>
       </div>
-      <!-- 骨架屏 -->
       <div id="glmSkeleton" class="content">
         <div class="usage-card">
           <div class="skeleton-line w60"></div>
@@ -42,7 +47,6 @@
           <div class="skeleton-line w80"></div>
         </div>
       </div>
-      <!-- 数据内容 -->
       <div id="glmContent" class="content" style="display:none">
         <div class="usage-card">
           <div class="usage-header">
@@ -72,7 +76,6 @@
           <div id="glmToolsDetails" class="tools-details"></div>
         </div>
       </div>
-      <!-- 错误状态 -->
       <div id="glmError" class="error-prompt" style="display:none">
         <p id="glmErrorMsg"></p>
         <button id="glmErrorBtn" class="primary-btn"></button>
@@ -81,15 +84,11 @@
 
     <!-- MiniMax 面板 -->
     <div id="minimaxPanel" class="panel">
-      <!-- 设置区域 -->
-      <div id="minimaxSetup" class="setup-section" style="display:none">
-        <p>请输入 Minimax API Key</p>
-        <input type="password" id="apiKeyInput" placeholder="sk-cp-xxxxxxxx" class="api-input">
-        <button id="saveApiKeyBtn" class="primary-btn">保存</button>
-        <button id="autoGetBtn" class="secondary-btn">自动获取</button>
-        <p id="setupHint" class="setup-hint"></p>
+      <!-- 未配置 Key 提示 -->
+      <div id="minimaxNoKey" class="login-prompt" style="display:none">
+        <p>Minimax API Key 未配置</p>
+        <button id="minimaxGoSettingsBtn" class="primary-btn">前往设置</button>
       </div>
-      <!-- 骨架屏 -->
       <div id="minimaxSkeleton" class="content" style="display:none">
         <div class="usage-card">
           <div class="skeleton-line w60"></div>
@@ -102,12 +101,9 @@
           <div class="skeleton-line w40"></div>
         </div>
       </div>
-      <!-- 数据内容 -->
       <div id="minimaxContent" class="content" style="display:none">
         <div id="minimaxCards" class="cards-grid"></div>
-        <button id="changeApiKeyBtn" class="text-btn">修改 API Key</button>
       </div>
-      <!-- 错误状态 -->
       <div id="minimaxError" class="error-prompt" style="display:none">
         <p id="minimaxErrorMsg"></p>
         <button id="minimaxErrorBtn" class="primary-btn"></button>
@@ -117,6 +113,55 @@
     <!-- 全局错误消息 -->
     <div id="errorMsg" class="error-msg" style="display:none"></div>
   </div>
+
+  <!-- 设置面板 -->
+  <div id="settingsOverlay" class="settings-overlay">
+    <div class="settings-panel">
+      <div class="settings-header">
+        <h2>设置</h2>
+        <button id="settingsCloseBtn" class="header-btn" title="关闭">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="settings-body">
+        <!-- MiniMax API Key -->
+        <div class="settings-group">
+          <div class="settings-label">Minimax API Key</div>
+          <input type="password" id="apiKeyInput" placeholder="sk-cp-xxxxxxxx" class="api-input">
+          <div class="settings-btn-row">
+            <button id="autoGetBtn" class="secondary-btn">自动获取</button>
+            <button id="saveApiKeyBtn" class="primary-btn">保存</button>
+          </div>
+          <p id="apiKeyHint" class="settings-hint"></p>
+        </div>
+        <!-- 自动刷新 -->
+        <div class="settings-group">
+          <div class="settings-label">自动刷新</div>
+          <div class="settings-row">
+            <span class="settings-desc">打开弹窗时自动定时刷新数据</span>
+            <label class="toggle">
+              <input type="checkbox" id="autoRefreshToggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div id="autoRefreshOptions" class="settings-sub" style="display:none">
+            <div class="settings-row">
+              <span class="settings-desc">刷新间隔</span>
+              <select id="autoRefreshInterval" class="settings-select">
+                <option value="60">1 分钟</option>
+                <option value="180">3 分钟</option>
+                <option value="300" selected>5 分钟</option>
+                <option value="600">10 分钟</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

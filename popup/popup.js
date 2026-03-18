@@ -33,26 +33,35 @@ const els = {
   glmToolsTime: $('#glmToolsTime'),
   glmToolsDetails: $('#glmToolsDetails'),
   // MiniMax
-  minimaxSetup: $('#minimaxSetup'),
+  minimaxNoKey: $('#minimaxNoKey'),
+  minimaxGoSettingsBtn: $('#minimaxGoSettingsBtn'),
   minimaxSkeleton: $('#minimaxSkeleton'),
   minimaxContent: $('#minimaxContent'),
   minimaxError: $('#minimaxError'),
   minimaxErrorMsg: $('#minimaxErrorMsg'),
   minimaxErrorBtn: $('#minimaxErrorBtn'),
   minimaxCards: $('#minimaxCards'),
+  // Header
+  refreshBtn: $('#refreshBtn'),
+  settingsBtn: $('#settingsBtn'),
+  // 设置面板
+  settingsOverlay: $('#settingsOverlay'),
+  settingsCloseBtn: $('#settingsCloseBtn'),
   apiKeyInput: $('#apiKeyInput'),
   saveApiKeyBtn: $('#saveApiKeyBtn'),
   autoGetBtn: $('#autoGetBtn'),
-  changeApiKeyBtn: $('#changeApiKeyBtn'),
-  setupHint: $('#setupHint'),
+  apiKeyHint: $('#apiKeyHint'),
+  autoRefreshToggle: $('#autoRefreshToggle'),
+  autoRefreshOptions: $('#autoRefreshOptions'),
+  autoRefreshInterval: $('#autoRefreshInterval'),
   // 全局
-  refreshBtn: $('#refreshBtn'),
   errorMsg: $('#errorMsg'),
 };
 
 // ========== 状态 ==========
 let currentTab = 'glm';
 let isRefreshing = false;
+let autoRefreshTimer = null;
 
 // ========== 工具函数 ==========
 function sendMessage(msg) {
@@ -79,14 +88,6 @@ function getUnitName(unit) {
   return map[unit] || '';
 }
 
-function showErrorToast(msg) {
-  els.errorMsg.textContent = msg;
-  els.errorMsg.style.display = 'block';
-  setTimeout(() => {
-    els.errorMsg.style.display = 'none';
-  }, 3000);
-}
-
 // ========== GLM 状态切换 ==========
 function showGLMState(state) {
   els.glmLogin.style.display = state === 'login' ? 'block' : 'none';
@@ -97,7 +98,7 @@ function showGLMState(state) {
 
 // ========== MiniMax 状态切换 ==========
 function showMinimaxState(state) {
-  els.minimaxSetup.style.display = state === 'setup' ? 'block' : 'none';
+  els.minimaxNoKey.style.display = state === 'nokey' ? 'block' : 'none';
   els.minimaxSkeleton.style.display = state === 'loading' ? 'flex' : 'none';
   els.minimaxContent.style.display = state === 'content' ? 'flex' : 'none';
   els.minimaxError.style.display = state === 'error' ? 'block' : 'none';
@@ -120,14 +121,12 @@ els.tabs.forEach((tab) => {
 async function fetchGLMData() {
   showGLMState('loading');
 
-  // 获取 token
   const tokenResult = await sendMessage({ type: 'getGLMToken' });
   if (!tokenResult || tokenResult.error === 'NOT_LOGGED_IN') {
     showGLMState('login');
     return;
   }
 
-  // 请求用量
   const result = await sendMessage({
     type: 'fetchGLMUsage',
     token: tokenResult.token,
@@ -159,7 +158,6 @@ function renderGLMData(data) {
   showGLMState('content');
   const limits = data.limits || [];
 
-  // Token 用量
   const tokenLimit = limits.find((l) => l.type === 'TOKENS_LIMIT');
   if (tokenLimit) {
     const pct = tokenLimit.percentage || 0;
@@ -175,7 +173,6 @@ function renderGLMData(data) {
     els.glmTokensTime.textContent = formatTime(tokenLimit.nextResetTime);
   }
 
-  // 工具调用
   const toolLimit = limits.find((l) => l.type === 'TIME_LIMIT');
   if (toolLimit) {
     const pct = toolLimit.percentage || 0;
@@ -189,7 +186,6 @@ function renderGLMData(data) {
     els.glmToolsUsage.textContent = `${toolLimit.usage || 0}/${toolLimit.currentValue || 0} 次`;
     els.glmToolsTime.textContent = formatTime(toolLimit.nextResetTime);
 
-    // 工具明细
     els.glmToolsDetails.innerHTML = '';
     if (toolLimit.usageDetails && toolLimit.usageDetails.length > 0) {
       toolLimit.usageDetails.forEach((detail) => {
@@ -203,7 +199,6 @@ function renderGLMData(data) {
   }
 }
 
-// ========== GLM 登录按钮 ==========
 els.glmLoginBtn.addEventListener('click', () => {
   chrome.tabs.create({
     url: 'https://bigmodel.cn/login?redirect=%2Fusercenter%2Fsettings%2Faccount',
@@ -212,12 +207,11 @@ els.glmLoginBtn.addEventListener('click', () => {
 
 // ========== MiniMax 数据获取 ==========
 async function fetchMiniMaxData() {
-  // 从 storage 读取 API Key
   const stored = await chrome.storage.local.get('minimaxApiKey');
   const apiKey = stored.minimaxApiKey;
 
   if (!apiKey) {
-    showMinimaxState('setup');
+    showMinimaxState('nokey');
     return;
   }
 
@@ -241,11 +235,8 @@ async function fetchMiniMaxData() {
   if (!data || data.base_resp?.status_code !== 0) {
     showMinimaxState('error');
     els.minimaxErrorMsg.textContent = 'API Key 无效或已过期，请重新配置';
-    els.minimaxErrorBtn.textContent = '重新配置';
-    els.minimaxErrorBtn.onclick = () => {
-      chrome.storage.local.remove('minimaxApiKey');
-      showMinimaxState('setup');
-    };
+    els.minimaxErrorBtn.textContent = '前往设置';
+    els.minimaxErrorBtn.onclick = openSettings;
     return;
   }
 
@@ -303,17 +294,47 @@ function renderMiniMaxData(data) {
   });
 }
 
-// ========== MiniMax 设置 ==========
+// MiniMax 未配置 Key → 跳转设置
+els.minimaxGoSettingsBtn.addEventListener('click', openSettings);
+
+// ========== 设置面板 ==========
+function openSettings() {
+  els.settingsOverlay.classList.add('visible');
+  // 加载已有 API Key
+  chrome.storage.local.get('minimaxApiKey', (stored) => {
+    els.apiKeyInput.value = stored.minimaxApiKey || '';
+  });
+  setApiKeyHint('', '');
+}
+
+function closeSettings() {
+  els.settingsOverlay.classList.remove('visible');
+}
+
+els.settingsBtn.addEventListener('click', openSettings);
+els.settingsCloseBtn.addEventListener('click', closeSettings);
+els.settingsOverlay.addEventListener('click', (e) => {
+  if (e.target === els.settingsOverlay) closeSettings();
+});
+
+function setApiKeyHint(msg, type) {
+  els.apiKeyHint.textContent = msg;
+  els.apiKeyHint.className = 'settings-hint' + (type ? ' ' + type : '');
+}
+
 // 保存 API Key
 els.saveApiKeyBtn.addEventListener('click', () => {
   const key = els.apiKeyInput.value.trim();
   if (!key) {
-    setHint('请输入 API Key', 'error');
+    setApiKeyHint('请输入 API Key', 'error');
     return;
   }
   chrome.storage.local.set({ minimaxApiKey: key }, () => {
-    setHint('保存成功', 'success');
-    setTimeout(() => fetchMiniMaxData(), 500);
+    setApiKeyHint('保存成功', 'success');
+    setTimeout(() => {
+      closeSettings();
+      fetchMiniMaxData();
+    }, 500);
   });
 });
 
@@ -321,13 +342,12 @@ els.saveApiKeyBtn.addEventListener('click', () => {
 els.autoGetBtn.addEventListener('click', async () => {
   els.autoGetBtn.disabled = true;
   els.autoGetBtn.textContent = '获取中...';
-  setHint('', '');
+  setApiKeyHint('', '');
 
   try {
-    // 获取 cookie
     const cookieResult = await sendMessage({ type: 'getMiniMaxCookies' });
     if (!cookieResult || cookieResult.error === 'NOT_LOGGED_IN') {
-      setHint('未检测到登录状态，正在跳转登录页...', 'error');
+      setApiKeyHint('未检测到登录状态，正在跳转登录页...', 'error');
       setTimeout(() => {
         chrome.tabs.create({
           url: 'https://platform.minimaxi.com/login?redirect=%2Fuser-center%2Fpayment%2Fcoding-plan',
@@ -336,29 +356,30 @@ els.autoGetBtn.addEventListener('click', async () => {
       return;
     }
 
-    // 请求 token
     const tokenResult = await sendMessage({
       type: 'fetchMiniMaxToken',
       cookies: cookieResult.cookies,
     });
 
     if (!tokenResult || tokenResult.error) {
-      setHint('获取失败: ' + (tokenResult?.error || '未知错误'), 'error');
+      setApiKeyHint('获取失败: ' + (tokenResult?.error || '未知错误'), 'error');
       return;
     }
 
     const data = tokenResult.data;
     if (data?.base_resp?.status_code !== 0 || !data.tokens || data.tokens.length === 0) {
-      setHint('未找到 CodingPlan API Key，请确认已开通套餐', 'error');
+      setApiKeyHint('未找到 CodingPlan API Key，请确认已开通套餐', 'error');
       return;
     }
 
-    // 提取 complete_token
     const apiKey = data.tokens[0].complete_token;
     els.apiKeyInput.value = apiKey;
     chrome.storage.local.set({ minimaxApiKey: apiKey }, () => {
-      setHint('自动获取成功', 'success');
-      setTimeout(() => fetchMiniMaxData(), 800);
+      setApiKeyHint('自动获取成功', 'success');
+      setTimeout(() => {
+        closeSettings();
+        fetchMiniMaxData();
+      }, 800);
     });
   } finally {
     els.autoGetBtn.disabled = false;
@@ -366,23 +387,38 @@ els.autoGetBtn.addEventListener('click', async () => {
   }
 });
 
-// 修改 API Key
-els.changeApiKeyBtn.addEventListener('click', () => {
-  els.apiKeyInput.value = '';
-  setHint('', '');
-  showMinimaxState('setup');
-  // 加载已有 key 到输入框
-  chrome.storage.local.get('minimaxApiKey', (stored) => {
-    if (stored.minimaxApiKey) {
-      els.apiKeyInput.value = stored.minimaxApiKey;
-    }
-  });
+// ========== 自动刷新 ==========
+function startAutoRefresh() {
+  stopAutoRefresh();
+  const seconds = parseInt(els.autoRefreshInterval.value, 10) || 300;
+  autoRefreshTimer = setInterval(() => refreshAll(), seconds * 1000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+els.autoRefreshToggle.addEventListener('change', () => {
+  const enabled = els.autoRefreshToggle.checked;
+  els.autoRefreshOptions.style.display = enabled ? 'block' : 'none';
+  chrome.storage.local.set({ autoRefreshEnabled: enabled });
+  if (enabled) {
+    startAutoRefresh();
+  } else {
+    stopAutoRefresh();
+  }
 });
 
-function setHint(msg, type) {
-  els.setupHint.textContent = msg;
-  els.setupHint.className = 'setup-hint' + (type ? ' ' + type : '');
-}
+els.autoRefreshInterval.addEventListener('change', () => {
+  const seconds = parseInt(els.autoRefreshInterval.value, 10) || 300;
+  chrome.storage.local.set({ autoRefreshInterval: seconds });
+  if (els.autoRefreshToggle.checked) {
+    startAutoRefresh();
+  }
+});
 
 // ========== 刷新 ==========
 async function refreshAll() {
@@ -405,6 +441,8 @@ async function init() {
     'lastTab',
     'glmCache',
     'minimaxCache',
+    'autoRefreshEnabled',
+    'autoRefreshInterval',
   ]);
 
   if (stored.lastTab) {
@@ -417,6 +455,16 @@ async function init() {
   }
   if (stored.minimaxCache) {
     renderMiniMaxData(stored.minimaxCache);
+  }
+
+  // 恢复自动刷新设置
+  if (stored.autoRefreshEnabled) {
+    els.autoRefreshToggle.checked = true;
+    els.autoRefreshOptions.style.display = 'block';
+    if (stored.autoRefreshInterval) {
+      els.autoRefreshInterval.value = String(stored.autoRefreshInterval);
+    }
+    startAutoRefresh();
   }
 
   // 异步刷新
