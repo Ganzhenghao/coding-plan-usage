@@ -47,6 +47,7 @@ const els = {
   // Header
   refreshBtn: $('#refreshBtn'),
   settingsBtn: $('#settingsBtn'),
+  goUsageBtn: $('#goUsageBtn'),
   // 设置面板
   settingsOverlay: $('#settingsOverlay'),
   settingsCloseBtn: $('#settingsCloseBtn'),
@@ -389,6 +390,19 @@ function closeSettings() {
 }
 
 els.settingsBtn.addEventListener('click', openSettings);
+
+// ========== 跳转详细用量（Header 按钮）==========
+els.goUsageBtn.addEventListener('click', () => {
+  if (currentTab === 'glm') {
+    chrome.tabs.create({
+      url: 'https://bigmodel.cn/usercenter/glm-coding/usage',
+    });
+  } else {
+    chrome.tabs.create({
+      url: 'https://platform.minimaxi.com/user-center/payment/token-plan',
+    });
+  }
+});
 els.settingsCloseBtn.addEventListener('click', closeSettings);
 els.settingsOverlay.addEventListener('click', (e) => {
   if (e.target === els.settingsOverlay) closeSettings();
