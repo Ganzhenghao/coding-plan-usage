@@ -174,7 +174,7 @@ function renderGLMData(data) {
       els.glmTokensProgress.style.width = pct + '%';
     });
     const unitName = getUnitName(tokenLimit.unit);
-    els.glmTokensUsage.textContent = `${tokenLimit.number || 0}/${tokenLimit.number || 0}${unitName} tokens`;
+    els.glmTokensUsage.textContent = ``;
     els.glmTokensTime.textContent = '重置时间: ' + formatTime(tokenLimit.nextResetTime);
   }
 
@@ -188,7 +188,7 @@ function renderGLMData(data) {
     requestAnimationFrame(() => {
       els.glmToolsProgress.style.width = pct + '%';
     });
-    els.glmToolsUsage.textContent = `${toolLimit.usage || 0}/${toolLimit.currentValue || 0} 次`;
+    els.glmToolsUsage.textContent = `${toolLimit.currentValue || 0}/${toolLimit.usage || 0} 次`;
     els.glmToolsTime.textContent = '重置时间: ' + formatTime(toolLimit.nextResetTime);
 
     els.glmToolsDetails.innerHTML = '';
