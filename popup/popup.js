@@ -374,6 +374,17 @@ async function autoFetchMiniMaxKey(silent = true) {
     }
 
     const data = tokenResult.data;
+    if (data?.base_resp?.status_code === 1004) {
+      if (!silent) {
+        setApiKeyHint('未检测到登录状态，正在跳转登录页...', 'error');
+        setTimeout(() => {
+          chrome.tabs.create({
+            url: 'https://platform.minimaxi.com/login?redirect=%2Fuser-center%2Fpayment%2Fcoding-plan',
+          });
+        }, 1000);
+      }
+      return null;
+    }
     if (data?.base_resp?.status_code !== 0 || !data.tokens || data.tokens.length === 0) {
       if (!silent) {
         setApiKeyHint('未找到 CodingPlan API Key，请确认已开通套餐', 'error');
