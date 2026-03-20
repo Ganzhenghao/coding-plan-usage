@@ -14,7 +14,7 @@
 curl 'https://bigmodel.cn/api/monitor/usage/quota/limit' \
   -H 'accept: application/json, text/plain, */*' \
   -H 'accept-language: zh' \
-  -H 'authorization: eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX3R5cGUiOiJQRVJTT05BTCIsInVzZXJfY2hhbm5lbCI6IldFQ0hBVF9PUEVOIiwidXNlcl9pZCI6MjUxOTQxNywidXNlcl9rZXkiOiJkZmM4OTIwZC05YzZjLTRjYmEtYjY2OC1iNmYzOGJjMDg0NTYiLCJjdXN0b21lcl9pZCI6IjQ2NjIxNzU0NjEzMzExNDAwIiwidXNlcm5hbWUiOiLkuKhEb3JhZW1vbuS4qCJ9.FhRLVPRd0mkc6M9a2-NOTkU3cdiLTx84NQVr3xhjl7czXU1V96ux7r6lJg-9TMGm_BXvj-z0fDwfLJvS7wXW9g' \
+  -H 'authorization: eyJhbGciOiJIUzUxMiJ9.xxx.FhRLVPRd0mkc6M9a2-xx-9TMGm_BXvj-z0fDwfLJvS7wXW9g' \
   -H 'priority: u=1, i' \
   -H 'referer: https://bigmodel.cn/usercenter/glm-coding/usage' \
   -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
