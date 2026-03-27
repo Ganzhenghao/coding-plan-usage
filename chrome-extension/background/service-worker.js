@@ -1,7 +1,10 @@
 // CodingPlan 用量查询 - 后台服务
-// 处理 cookie 获取和 API 代理请求
+// 处理 cookie 获取和 API 代理请求，以及后台预警监控
 
 const API_TIMEOUT = 5000;
+const ALARM_NAME = 'checkUsageAlerts';
+const SHORT_INTERVAL_ALARM_NAME = 'checkUsageAlertsShort';
+let shortIntervalTimer = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handlers = {
@@ -131,3 +134,170 @@ async function handleFetchMiniMaxUsage({ apiKey }) {
     throw err;
   }
 }
+
+// ========== 后台预警监控 ==========
+
+// 初始化定时任务
+async function initAlarm() {
+  const stored = await chrome.storage.local.get(['alertEnabled', 'autoRefreshInterval']);
+  
+  // 清除现有的定时任务
+  await chrome.alarms.clear(ALARM_NAME);
+  if (shortIntervalTimer) {
+    clearTimeout(shortIntervalTimer);
+    shortIntervalTimer = null;
+  }
+  
+  if (!stored.alertEnabled) {
+    return;
+  }
+  
+  const intervalSeconds = stored.autoRefreshInterval || 300;
+  
+  if (intervalSeconds < 60) {
+    // 短间隔使用 setTimeout（chrome.alarms 最小间隔为 1 分钟）
+    startShortInterval(intervalSeconds);
+  } else {
+    // 长间隔使用 chrome.alarms
+    const intervalMinutes = Math.max(1, intervalSeconds / 60);
+    await chrome.alarms.create(ALARM_NAME, {
+      periodInMinutes: intervalMinutes,
+    });
+  }
+}
+
+// 启动短间隔定时器
+function startShortInterval(seconds) {
+  if (shortIntervalTimer) {
+    clearTimeout(shortIntervalTimer);
+  }
+  
+  shortIntervalTimer = setInterval(async () => {
+    await checkUsageInBackground();
+  }, seconds * 1000);
+}
+
+// 定时任务触发时执行用量检查
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === ALARM_NAME) {
+    await checkUsageInBackground();
+  }
+});
+
+// 后台用量检查和预警
+async function checkUsageInBackground() {
+  const stored = await chrome.storage.local.get(['alertEnabled']);
+  if (!stored.alertEnabled) return;
+  
+  const usageItems = [];
+  
+  // 检查 GLM 用量
+  try {
+    const tokenResult = await handleGetGLMToken();
+    if (tokenResult.token) {
+      const glmResult = await handleFetchGLMUsage({ token: tokenResult.token });
+      if (glmResult.data?.data?.limits) {
+        const limits = glmResult.data.data.limits;
+        
+        const tokenLimit = limits.find((l) => l.type === 'TOKENS_LIMIT');
+        if (tokenLimit) {
+          usageItems.push({ name: 'GLM-Tokens', percentage: tokenLimit.percentage || 0 });
+        }
+        
+        const toolLimit = limits.find((l) => l.type === 'TIME_LIMIT');
+        if (toolLimit) {
+          usageItems.push({ name: 'GLM-MCP工具', percentage: toolLimit.percentage || 0 });
+        }
+        
+        // 更新缓存
+        await chrome.storage.local.set({ glmCache: glmResult.data.data, glmCacheTime: Date.now() });
+      }
+    }
+  } catch (err) {
+    console.error('[CodingPlan] GLM 后台检查失败:', err);
+  }
+  
+  // 检查 MiniMax 用量
+  try {
+    const minimaxStored = await chrome.storage.local.get('minimaxApiKey');
+    if (minimaxStored.minimaxApiKey) {
+      const minimaxResult = await handleFetchMiniMaxUsage({ apiKey: minimaxStored.minimaxApiKey });
+      if (minimaxResult.data?.model_remains) {
+        const models = minimaxResult.data.model_remains;
+        
+        models.forEach((model) => {
+          const total = model.current_interval_total_count || 0;
+          const remaining = model.current_interval_usage_count || 0;
+          const used = total - remaining;
+          const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+          usageItems.push({ name: 'MiniMax-' + model.model_name, percentage: pct });
+        });
+        
+        // 更新缓存
+        await chrome.storage.local.set({ minimaxCache: minimaxResult.data, minimaxCacheTime: Date.now() });
+      }
+    }
+  } catch (err) {
+    console.error('[CodingPlan] MiniMax 后台检查失败:', err);
+  }
+  
+  // 检查阈值并发送通知
+  await checkThresholds(usageItems);
+}
+
+// 预警阈值检查（与 popup.js 中的逻辑相同）
+async function checkThresholds(usageItems) {
+  const stored = await chrome.storage.local.get([
+    'alertEnabled',
+    'alertThreshold1',
+    'alertThreshold2',
+    'notifiedAlerts',
+  ]);
+  
+  if (!stored.alertEnabled) return;
+  
+  const threshold1 = stored.alertThreshold1 ?? 50;
+  const threshold2 = stored.alertThreshold2 ?? 80;
+  const thresholds = [threshold1, threshold2].sort((a, b) => a - b);
+  const notified = stored.notifiedAlerts || {};
+  let changed = false;
+  
+  for (const item of usageItems) {
+    for (const threshold of thresholds) {
+      const key = `${item.name}-${threshold}`;
+      if (item.percentage >= threshold && !notified[key]) {
+        chrome.notifications.create(key, {
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+          title: 'CodingPlan 用量预警',
+          message: `${item.name} 使用量已达 ${item.percentage}%，超过 ${threshold}% 预警线`,
+        });
+        notified[key] = true;
+        changed = true;
+      } else if (item.percentage < threshold && notified[key]) {
+        delete notified[key];
+        changed = true;
+      }
+    }
+  }
+  
+  if (changed) {
+    await chrome.storage.local.set({ notifiedAlerts: notified });
+  }
+}
+
+// 监听预警设置变更，更新定时任务
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && (changes.alertEnabled || changes.autoRefreshInterval)) {
+    initAlarm();
+  }
+});
+
+// 扩展安装或启动时初始化定时任务
+chrome.runtime.onInstalled.addListener(() => {
+  initAlarm();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  initAlarm();
+});
