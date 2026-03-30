@@ -34,7 +34,7 @@ CodingPlan 用量查询 — 一款 Chrome 浏览器扩展（Manifest V3），用
 - `minimaxApiKey` — MiniMax API Key
 - `glmCache` / `minimaxCache` — 上次查询结果缓存
 - `autoRefreshEnabled` / `autoRefreshInterval` — 自动刷新配置
-- `alertEnabled` / `alertThreshold1` / `alertThreshold2` / `notifiedAlerts` — 用量预警配置
+- `alertEnabled` / `alertThreshold1` / `alertThreshold2` / `alertThreshold3` / `notifiedAlerts` — 用量预警配置
 
 ### UI 状态机
 

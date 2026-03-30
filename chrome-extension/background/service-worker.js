@@ -4,7 +4,15 @@
 const API_TIMEOUT = 5000;
 const ALARM_NAME = 'checkUsageAlerts';
 const SHORT_INTERVAL_ALARM_NAME = 'checkUsageAlertsShort';
+const ALERT_THRESHOLD_KEYS = ['alertThreshold1', 'alertThreshold2', 'alertThreshold3'];
+const DEFAULT_ALERT_THRESHOLDS = [25, 50, 75];
 let shortIntervalTimer = null;
+
+function getAlertThresholds(stored) {
+  return ALERT_THRESHOLD_KEYS.map(
+    (key, index) => stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index]
+  ).sort((a, b) => a - b);
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handlers = {
@@ -249,16 +257,13 @@ async function checkUsageInBackground() {
 async function checkThresholds(usageItems) {
   const stored = await chrome.storage.local.get([
     'alertEnabled',
-    'alertThreshold1',
-    'alertThreshold2',
+    ...ALERT_THRESHOLD_KEYS,
     'notifiedAlerts',
   ]);
   
   if (!stored.alertEnabled) return;
   
-  const threshold1 = stored.alertThreshold1 ?? 50;
-  const threshold2 = stored.alertThreshold2 ?? 80;
-  const thresholds = [threshold1, threshold2].sort((a, b) => a - b);
+  const thresholds = getAlertThresholds(stored);
   const notified = stored.notifiedAlerts || {};
   let changed = false;
   

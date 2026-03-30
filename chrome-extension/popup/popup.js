@@ -7,6 +7,9 @@ const TOOL_NAME_MAP = {
   'zread': '深度阅读',
 };
 
+const ALERT_THRESHOLD_KEYS = ['alertThreshold1', 'alertThreshold2', 'alertThreshold3'];
+const DEFAULT_ALERT_THRESHOLDS = [25, 50, 75];
+
 // ========== DOM 元素 ==========
 const $ = (sel) => document.querySelector(sel);
 
@@ -62,6 +65,7 @@ const els = {
   alertOptions: $('#alertOptions'),
   alertThreshold1: $('#alertThreshold1'),
   alertThreshold2: $('#alertThreshold2'),
+  alertThreshold3: $('#alertThreshold3'),
   // 全局
   errorMsg: $('#errorMsg'),
 };
@@ -94,6 +98,40 @@ function getProgressClass(percentage) {
 function getUnitName(unit) {
   const map = { 3: 'M', 5: '日', 4: '月' };
   return map[unit] || '';
+}
+
+function getAlertThresholds(stored) {
+  return ALERT_THRESHOLD_KEYS.map(
+    (key, index) => stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index]
+  ).sort((a, b) => a - b);
+}
+
+function normalizeAlertThreshold(value, fallback) {
+  return Math.max(1, Math.min(99, value || fallback));
+}
+
+function normalizeAndSortAlertThresholds(values) {
+  return values
+    .map((value, index) => normalizeAlertThreshold(value, DEFAULT_ALERT_THRESHOLDS[index]))
+    .sort((a, b) => a - b);
+}
+
+function setAlertThresholdInputs(values) {
+  ALERT_THRESHOLD_KEYS.forEach((key, index) => {
+    els[key].value = values[index];
+  });
+}
+
+function saveAlertThresholds(values) {
+  const normalized = normalizeAndSortAlertThresholds(values);
+  const payload = { notifiedAlerts: {} };
+
+  ALERT_THRESHOLD_KEYS.forEach((key, index) => {
+    payload[key] = normalized[index];
+  });
+
+  setAlertThresholdInputs(normalized);
+  chrome.storage.local.set(payload);
 }
 
 // ========== GLM 状态切换 ==========
@@ -336,16 +374,13 @@ els.minimaxGoSettingsBtn.addEventListener('click', openSettings);
 async function checkThresholds(usageItems) {
   const stored = await chrome.storage.local.get([
     'alertEnabled',
-    'alertThreshold1',
-    'alertThreshold2',
+    ...ALERT_THRESHOLD_KEYS,
     'notifiedAlerts',
   ]);
 
   if (!stored.alertEnabled) return;
 
-  const threshold1 = stored.alertThreshold1 ?? 50;
-  const threshold2 = stored.alertThreshold2 ?? 80;
-  const thresholds = [threshold1, threshold2].sort((a, b) => a - b);
+  const thresholds = getAlertThresholds(stored);
   const notified = stored.notifiedAlerts || {};
   let changed = false;
 
@@ -550,17 +585,27 @@ els.alertToggle.addEventListener('change', () => {
 });
 
 els.alertThreshold1.addEventListener('change', () => {
-  let val = parseInt(els.alertThreshold1.value, 10);
-  val = Math.max(1, Math.min(99, val || 50));
-  els.alertThreshold1.value = val;
-  chrome.storage.local.set({ alertThreshold1: val, notifiedAlerts: {} });
+  saveAlertThresholds([
+    parseInt(els.alertThreshold1.value, 10),
+    parseInt(els.alertThreshold2.value, 10),
+    parseInt(els.alertThreshold3.value, 10),
+  ]);
 });
 
 els.alertThreshold2.addEventListener('change', () => {
-  let val = parseInt(els.alertThreshold2.value, 10);
-  val = Math.max(1, Math.min(99, val || 80));
-  els.alertThreshold2.value = val;
-  chrome.storage.local.set({ alertThreshold2: val, notifiedAlerts: {} });
+  saveAlertThresholds([
+    parseInt(els.alertThreshold1.value, 10),
+    parseInt(els.alertThreshold2.value, 10),
+    parseInt(els.alertThreshold3.value, 10),
+  ]);
+});
+
+els.alertThreshold3.addEventListener('change', () => {
+  saveAlertThresholds([
+    parseInt(els.alertThreshold1.value, 10),
+    parseInt(els.alertThreshold2.value, 10),
+    parseInt(els.alertThreshold3.value, 10),
+  ]);
 });
 
 // ========== 刷新 ==========
@@ -600,8 +645,7 @@ async function init() {
     'autoRefreshEnabled',
     'autoRefreshInterval',
     'alertEnabled',
-    'alertThreshold1',
-    'alertThreshold2',
+    ...ALERT_THRESHOLD_KEYS,
   ]);
 
   if (stored.lastTab) {
@@ -631,11 +675,24 @@ async function init() {
     els.alertToggle.checked = true;
     els.alertOptions.style.display = 'flex';
   }
-  if (stored.alertThreshold1 != null) {
-    els.alertThreshold1.value = stored.alertThreshold1;
-  }
-  if (stored.alertThreshold2 != null) {
-    els.alertThreshold2.value = stored.alertThreshold2;
+  const hasStoredThresholds = ALERT_THRESHOLD_KEYS.some((key) => stored[key] != null);
+  const initialThresholds = hasStoredThresholds
+    ? normalizeAndSortAlertThresholds(
+        ALERT_THRESHOLD_KEYS.map((key, index) => stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index])
+      )
+    : DEFAULT_ALERT_THRESHOLDS;
+  setAlertThresholdInputs(initialThresholds);
+
+  if (
+    hasStoredThresholds &&
+    ALERT_THRESHOLD_KEYS.some((key, index) => stored[key] !== initialThresholds[index])
+  ) {
+    chrome.storage.local.set(
+      ALERT_THRESHOLD_KEYS.reduce((acc, key, index) => {
+        acc[key] = initialThresholds[index];
+        return acc;
+      }, {})
+    );
   }
 
   // 异步刷新
