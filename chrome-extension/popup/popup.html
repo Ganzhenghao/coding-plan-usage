@@ -32,6 +32,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="glm">GLM</button>
       <button class="tab" data-tab="minimax">Minimax</button>
+      <button class="tab" data-tab="deepseek">DeepSeek</button>
     </div>
 
     <!-- GLM 面板 -->
@@ -124,6 +125,61 @@
       <div id="minimaxError" class="error-prompt" style="display:none">
         <p id="minimaxErrorMsg"></p>
         <button id="minimaxErrorBtn" class="primary-btn"></button>
+      </div>
+    </div>
+
+    <!-- DeepSeek 面板 -->
+    <div id="deepseekPanel" class="panel">
+      <!-- 未登录提示 -->
+      <div id="deepseekLogin" class="login-prompt" style="display:none">
+        <p>请先登录 DeepSeek</p>
+        <button id="deepseekLoginBtn" class="primary-btn">前往登录</button>
+      </div>
+      <div id="deepseekSkeleton" class="content" style="display:none">
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-line w40"></div>
+        </div>
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-line w40"></div>
+        </div>
+      </div>
+      <div id="deepseekContent" class="content" style="display:none">
+        <div class="usage-card">
+          <div class="usage-header">
+            <span class="usage-label">账户余额</span>
+            <span id="deepseekBalance" class="usage-percent">--</span>
+          </div>
+          <div class="usage-detail">
+            <span id="deepseekTokenEstimation">--</span>
+          </div>
+        </div>
+        <div class="usage-card">
+          <div class="usage-header">
+            <span class="usage-label">本月统计</span>
+          </div>
+          <div class="deepseek-stats">
+            <div class="stat-item">
+              <div id="deepseekMonthlyUsage" class="stat-value">--</div>
+              <div class="stat-label">Token 用量</div>
+            </div>
+            <div class="stat-item">
+              <div id="deepseekMonthlyCost" class="stat-value">--</div>
+              <div class="stat-label">花费</div>
+            </div>
+          </div>
+        </div>
+        <button id="deepseekGoUsageBtn" class="go-usage-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14">
+            <path fill="currentColor" d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+          </svg>
+          查看详细用量
+        </button>
+      </div>
+      <div id="deepseekError" class="error-prompt" style="display:none">
+        <p id="deepseekErrorMsg"></p>
+        <button id="deepseekErrorBtn" class="primary-btn"></button>
       </div>
     </div>
 

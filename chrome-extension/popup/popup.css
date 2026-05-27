@@ -634,3 +634,10 @@ header h1 {
   background: #e2e8f0;
   color: #475569;
 }
+
+/* DeepSeek 统计 */
+.deepseek-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 8px;
+}
