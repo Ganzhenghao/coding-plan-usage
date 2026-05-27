@@ -59,6 +59,24 @@ const els = {
   deepseekMonthlyUsage: $('#deepseekMonthlyUsage'),
   deepseekMonthlyCost: $('#deepseekMonthlyCost'),
   deepseekGoUsageBtn: $('#deepseekGoUsageBtn'),
+  // Xiaomi
+  xiaomiPanel: $('#xiaomiPanel'),
+  xiaomiSkeleton: $('#xiaomiSkeleton'),
+  xiaomiContent: $('#xiaomiContent'),
+  xiaomiError: $('#xiaomiError'),
+  xiaomiErrorMsg: $('#xiaomiErrorMsg'),
+  xiaomiErrorBtn: $('#xiaomiErrorBtn'),
+  xiaomiMonthPercent: $('#xiaomiMonthPercent'),
+  xiaomiMonthProgress: $('#xiaomiMonthProgress'),
+  xiaomiMonthUsage: $('#xiaomiMonthUsage'),
+  xiaomiPlanPercent: $('#xiaomiPlanPercent'),
+  xiaomiPlanProgress: $('#xiaomiPlanProgress'),
+  xiaomiPlanUsage: $('#xiaomiPlanUsage'),
+  xiaomiCompensationCard: $('#xiaomiCompensationCard'),
+  xiaomiCompensationPercent: $('#xiaomiCompensationPercent'),
+  xiaomiCompensationProgress: $('#xiaomiCompensationProgress'),
+  xiaomiCompensationUsage: $('#xiaomiCompensationUsage'),
+  xiaomiGoUsageBtn: $('#xiaomiGoUsageBtn'),
   // GLM
   glmGoUsageBtn: $('#glmGoUsageBtn'),
   // Header
@@ -121,6 +139,15 @@ function formatTokenCount(num) {
   return n.toLocaleString();
 }
 
+// Xiaomi 专用格式化：动态单位（万、百万、亿），单位放在括号中
+function formatXiaomiToken(num) {
+  const n = parseInt(num) || 0;
+  if (n >= 100000000) return (n / 100000000).toFixed(1) + '(亿)';
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + '(百万)';
+  if (n >= 10000) return (n / 10000).toFixed(1) + '(万)';
+  return n.toLocaleString();
+}
+
 function getAlertThresholds(stored) {
   return ALERT_THRESHOLD_KEYS.map(
     (key, index) => stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index]
@@ -179,6 +206,13 @@ function showDeepSeekState(state) {
   els.deepseekError.style.display = state === 'error' ? 'block' : 'none';
 }
 
+// ========== Xiaomi 状态切换 ==========
+function showXiaomiState(state) {
+  els.xiaomiSkeleton.style.display = state === 'loading' ? 'flex' : 'none';
+  els.xiaomiContent.style.display = state === 'content' ? 'flex' : 'none';
+  els.xiaomiError.style.display = state === 'error' ? 'block' : 'none';
+}
+
 // ========== Tab 切换 ==========
 function switchTab(tab) {
   currentTab = tab;
@@ -186,6 +220,7 @@ function switchTab(tab) {
   els.glmPanel.classList.toggle('active', tab === 'glm');
   els.minimaxPanel.classList.toggle('active', tab === 'minimax');
   els.deepseekPanel.classList.toggle('active', tab === 'deepseek');
+  els.xiaomiPanel.classList.toggle('active', tab === 'xiaomi');
   chrome.storage.local.set({ lastTab: tab });
 }
 
@@ -494,6 +529,112 @@ els.deepseekGoUsageBtn.addEventListener('click', () => {
   });
 });
 
+// ========== Xiaomi 数据获取 ==========
+async function fetchXiaomiData() {
+  showXiaomiState('loading');
+
+  const cookieResult = await sendMessage({ type: 'getXiaomiCookies' });
+  const cookies = cookieResult?.cookies || '';
+
+  const result = await sendMessage({
+    type: 'fetchXiaomiUsage',
+    cookies,
+  });
+
+  if (!result || result.error) {
+    const isTimeout = result && result.error === 'TIMEOUT';
+    showXiaomiState('error');
+    els.xiaomiErrorMsg.textContent = isTimeout ? '请求超时，请检查网络后重试' : '获取 Xiaomi 用量失败';
+    els.xiaomiErrorBtn.textContent = '重试';
+    els.xiaomiErrorBtn.onclick = fetchXiaomiData;
+    return;
+  }
+
+  const data = result.data;
+
+  // 401 表示未登录
+  if (data && data.code === 401 && data.loginUrl) {
+    showXiaomiState('error');
+    els.xiaomiErrorMsg.textContent = '请先登录小米平台';
+    els.xiaomiErrorBtn.textContent = '前往登录';
+    els.xiaomiErrorBtn.onclick = () => {
+      window.open(data.loginUrl);
+    };
+    return;
+  }
+
+  if (!data || data.code !== 0 || !data.data) {
+    showXiaomiState('error');
+    els.xiaomiErrorMsg.textContent = '数据格式异常，请稍后重试';
+    els.xiaomiErrorBtn.textContent = '重试';
+    els.xiaomiErrorBtn.onclick = fetchXiaomiData;
+    return;
+  }
+
+  renderXiaomiData(data.data);
+  chrome.storage.local.set({ xiaomiCache: data, xiaomiCacheTime: Date.now() });
+}
+
+function renderXiaomiData(data) {
+  showXiaomiState('content');
+
+  // 月度用量
+  const monthItem = data.monthUsage?.items?.[0];
+  if (monthItem) {
+    const pct = parseFloat(monthItem.percent) || 0;
+    const cls = getProgressClass(pct);
+    els.xiaomiMonthPercent.textContent = pct.toFixed(1) + '%';
+    els.xiaomiMonthPercent.className = 'usage-percent' + (cls ? ' ' + cls : '');
+    els.xiaomiMonthProgress.className = 'progress-fill' + (cls ? ' ' + cls : '');
+    requestAnimationFrame(() => {
+      els.xiaomiMonthProgress.style.width = pct + '%';
+    });
+    els.xiaomiMonthUsage.textContent = `已用 ${formatXiaomiToken(monthItem.used)} / 总量 ${formatXiaomiToken(monthItem.limit)}`;
+  }
+
+  // 套餐总量
+  const usageItems = data.usage?.items || [];
+  const planItem = usageItems.find((i) => i.name === 'plan_total_token');
+  if (planItem) {
+    const pct = parseFloat(planItem.percent) || 0;
+    const cls = getProgressClass(pct);
+    els.xiaomiPlanPercent.textContent = pct.toFixed(1) + '%';
+    els.xiaomiPlanPercent.className = 'usage-percent' + (cls ? ' ' + cls : '');
+    els.xiaomiPlanProgress.className = 'progress-fill' + (cls ? ' ' + cls : '');
+    requestAnimationFrame(() => {
+      els.xiaomiPlanProgress.style.width = pct + '%';
+    });
+    els.xiaomiPlanUsage.textContent = `已用 ${formatXiaomiToken(planItem.used)} / 总量 ${formatXiaomiToken(planItem.limit)}`;
+  }
+
+  // 补偿额度（limit 为 0 时隐藏）
+  const compensationItem = usageItems.find((i) => i.name === 'compensation_total_token');
+  if (compensationItem && compensationItem.limit > 0) {
+    els.xiaomiCompensationCard.style.display = '';
+    const pct = parseFloat(compensationItem.percent) || 0;
+    const cls = getProgressClass(pct);
+    els.xiaomiCompensationPercent.textContent = pct.toFixed(1) + '%';
+    els.xiaomiCompensationPercent.className = 'usage-percent' + (cls ? ' ' + cls : '');
+    els.xiaomiCompensationProgress.className = 'progress-fill' + (cls ? ' ' + cls : '');
+    requestAnimationFrame(() => {
+      els.xiaomiCompensationProgress.style.width = pct + '%';
+    });
+    els.xiaomiCompensationUsage.textContent = `已用 ${formatXiaomiToken(compensationItem.used)} / 总量 ${formatXiaomiToken(compensationItem.limit)}`;
+  } else {
+    els.xiaomiCompensationCard.style.display = 'none';
+  }
+
+  // 收集用量数据进行阈值检查
+  const xiaomiUsageItems = [];
+  if (monthItem) {
+    xiaomiUsageItems.push({ name: 'Xiaomi-月度用量', percentage: parseFloat(monthItem.percent) || 0 });
+  }
+  if (planItem) {
+    xiaomiUsageItems.push({ name: 'Xiaomi-套餐总量', percentage: parseFloat(planItem.percent) || 0 });
+  }
+  checkThresholds(xiaomiUsageItems);
+}
+
 // ========== 预警阈值检查 ==========
 async function checkThresholds(usageItems) {
   const stored = await chrome.storage.local.get([
@@ -563,6 +704,10 @@ els.goUsageBtn.addEventListener('click', () => {
   } else if (currentTab === 'deepseek') {
     chrome.tabs.create({
       url: 'https://platform.deepseek.com/usage',
+    });
+  } else if (currentTab === 'xiaomi') {
+    chrome.tabs.create({
+      url: 'https://platform.xiaomimimo.com/console/plan-manage',
     });
   }
 });
@@ -742,7 +887,7 @@ async function refreshAll() {
   isRefreshing = true;
   els.refreshBtn.classList.add('loading');
 
-  await Promise.all([fetchGLMData(), fetchMiniMaxData(), fetchDeepSeekData()]);
+  await Promise.all([fetchGLMData(), fetchMiniMaxData(), fetchDeepSeekData(), fetchXiaomiData()]);
 
   isRefreshing = false;
   els.refreshBtn.classList.remove('loading');
@@ -764,6 +909,12 @@ els.minimaxGoUsageBtn.addEventListener('click', () => {
   });
 });
 
+els.xiaomiGoUsageBtn.addEventListener('click', () => {
+  chrome.tabs.create({
+    url: 'https://platform.xiaomimimo.com/console/plan-manage',
+  });
+});
+
 // ========== 初始化 ==========
 async function init() {
   const stored = await chrome.storage.local.get([
@@ -771,6 +922,7 @@ async function init() {
     'glmCache',
     'minimaxCache',
     'deepseekCache',
+    'xiaomiCache',
     'autoRefreshEnabled',
     'autoRefreshInterval',
     'alertEnabled',
@@ -790,6 +942,9 @@ async function init() {
   }
   if (stored.deepseekCache) {
     renderDeepSeekData(stored.deepseekCache);
+  }
+  if (stored.xiaomiCache) {
+    renderXiaomiData(stored.xiaomiCache.data);
   }
 
   // 恢复自动刷新设置
