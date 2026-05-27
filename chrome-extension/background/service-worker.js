@@ -21,6 +21,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     getMiniMaxCookies: handleGetMiniMaxCookies,
     fetchMiniMaxToken: handleFetchMiniMaxToken,
     fetchMiniMaxUsage: handleFetchMiniMaxUsage,
+    getDeepSeekToken: handleGetDeepSeekToken,
+    refreshDeepSeekToken: handleRefreshDeepSeekToken,
+    fetchDeepSeekUsage: handleFetchDeepSeekUsage,
   };
 
   const handler = handlers[message.type];
@@ -143,6 +146,60 @@ async function handleFetchMiniMaxUsage({ apiKey }) {
   }
 }
 
+// 从 storage 获取 DeepSeek token
+async function handleGetDeepSeekToken() {
+  const stored = await chrome.storage.local.get('deepseekToken');
+  if (stored.deepseekToken) {
+    return { token: stored.deepseekToken };
+  }
+  return { error: 'NOT_LOGGED_IN' };
+}
+
+// 从已打开的 DeepSeek 页面刷新 token
+async function handleRefreshDeepSeekToken() {
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://platform.deepseek.com/*' });
+    if (tabs.length === 0) return { error: 'NO_TAB' };
+    const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'getDeepSeekTokenFromPage' });
+    if (response && response.token) {
+      await chrome.storage.local.set({ deepseekToken: response.token });
+      return { token: response.token };
+    }
+    return { error: 'NO_TOKEN' };
+  } catch {
+    return { error: 'NO_TAB' };
+  }
+}
+
+// 请求 DeepSeek 用户摘要 API
+async function handleFetchDeepSeekUsage({ token }) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+  try {
+    const resp = await fetch(
+      'https://platform.deepseek.com/api/v0/users/get_user_summary',
+      {
+        headers: {
+          accept: '*/*',
+          authorization: `Bearer ${token}`,
+          'x-app-version': '1.0.0',
+        },
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+    const data = await resp.json();
+    return { data };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    throw err;
+  }
+}
+
 // ========== 后台预警监控 ==========
 
 // 初始化定时任务
@@ -248,7 +305,27 @@ async function checkUsageInBackground() {
   } catch (err) {
     console.error('[CodingPlan] MiniMax 后台检查失败:', err);
   }
-  
+
+  // 检查 DeepSeek 用量
+  try {
+    const deepseekStored = await chrome.storage.local.get('deepseekToken');
+    if (deepseekStored.deepseekToken) {
+      const deepseekResult = await handleFetchDeepSeekUsage({ token: deepseekStored.deepseekToken });
+      if (deepseekResult.data?.code === 0 && deepseekResult.data?.data?.biz_data) {
+        const bizData = deepseekResult.data.data.biz_data;
+        const totalEstimation = parseInt(bizData.total_available_token_estimation) || 0;
+        const monthlyUsage = parseInt(bizData.monthly_token_usage) || 0;
+        const total = monthlyUsage + totalEstimation;
+        const pct = total > 0 ? Math.round((monthlyUsage / total) * 100) : 0;
+        usageItems.push({ name: 'DeepSeek-余额', percentage: pct });
+        // 更新缓存
+        await chrome.storage.local.set({ deepseekCache: deepseekResult.data, deepseekCacheTime: Date.now() });
+      }
+    }
+  } catch (err) {
+    console.error('[CodingPlan] DeepSeek 后台检查失败:', err);
+  }
+
   // 检查阈值并发送通知
   await checkThresholds(usageItems);
 }
