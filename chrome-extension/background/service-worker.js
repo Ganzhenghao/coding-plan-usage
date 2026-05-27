@@ -24,6 +24,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     getDeepSeekToken: handleGetDeepSeekToken,
     refreshDeepSeekToken: handleRefreshDeepSeekToken,
     fetchDeepSeekUsage: handleFetchDeepSeekUsage,
+    getXiaomiCookies: handleGetXiaomiCookies,
+    fetchXiaomiUsage: handleFetchXiaomiUsage,
   };
 
   const handler = handlers[message.type];
@@ -200,6 +202,54 @@ async function handleFetchDeepSeekUsage({ token }) {
   }
 }
 
+// 获取 platform.xiaomimimo.com 的所有 Cookie
+async function handleGetXiaomiCookies() {
+  const cookies = await chrome.cookies.getAll({
+    domain: 'xiaomimimo.com',
+  });
+  if (cookies && cookies.length > 0) {
+    const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+    return { cookies: cookieStr };
+  }
+  return { cookies: '' };
+}
+
+// 请求 Xiaomi 用量 API
+async function handleFetchXiaomiUsage({ cookies }) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+  try {
+    const headers = {
+      accept: '*/*',
+      'accept-language': 'zh',
+      'content-type': 'application/json',
+      referer: 'https://platform.xiaomimimo.com/console/plan-manage',
+      'x-timezone': 'Asia/Shanghai',
+    };
+    if (cookies) {
+      headers.cookie = cookies;
+    }
+
+    const resp = await fetch(
+      'https://platform.xiaomimimo.com/api/v1/tokenPlan/usage',
+      {
+        headers,
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+    const data = await resp.json();
+    return { data };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    throw err;
+  }
+}
+
 // ========== 后台预警监控 ==========
 
 // 初始化定时任务
@@ -324,6 +374,29 @@ async function checkUsageInBackground() {
     }
   } catch (err) {
     console.error('[CodingPlan] DeepSeek 后台检查失败:', err);
+  }
+
+  // 检查 Xiaomi 用量
+  try {
+    const xiaomiCookieResult = await handleGetXiaomiCookies();
+    const xiaomiResult = await handleFetchXiaomiUsage({ cookies: xiaomiCookieResult.cookies || '' });
+    if (xiaomiResult.data?.code === 0 && xiaomiResult.data?.data) {
+      const xiaomiData = xiaomiResult.data.data;
+      // 月度用量
+      const monthItem = xiaomiData.monthUsage?.items?.[0];
+      if (monthItem) {
+        usageItems.push({ name: 'Xiaomi-月度用量', percentage: monthItem.percent || 0 });
+      }
+      // 套餐总量
+      const planItem = xiaomiData.usage?.items?.find((i) => i.name === 'plan_total_token');
+      if (planItem) {
+        usageItems.push({ name: 'Xiaomi-套餐总量', percentage: planItem.percent || 0 });
+      }
+      // 更新缓存
+      await chrome.storage.local.set({ xiaomiCache: xiaomiResult.data, xiaomiCacheTime: Date.now() });
+    }
+  } catch (err) {
+    console.error('[CodingPlan] Xiaomi 后台检查失败:', err);
   }
 
   // 检查阈值并发送通知
