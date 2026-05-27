@@ -522,7 +522,6 @@ function renderDeepSeekData(data) {
   const cls = getProgressClass(pct);
   els.deepseekBalance.className = 'usage-percent' + (cls ? ' ' + cls : '');
 
-  checkThresholds([{ name: 'DeepSeek-余额', percentage: pct }]);
 }
 
 els.deepseekLoginBtn.addEventListener('click', () => {

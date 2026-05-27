@@ -376,18 +376,12 @@ async function checkUsageInBackground() {
     console.error('[CodingPlan] MiniMax 后台检查失败:', err);
   }
 
-  // 检查 DeepSeek 用量
+  // DeepSeek 不参与用量预警，仅更新缓存
   try {
     const deepseekStored = await chrome.storage.local.get('deepseekToken');
     if (deepseekStored.deepseekToken) {
       const deepseekResult = await handleFetchDeepSeekUsage({ token: deepseekStored.deepseekToken });
       if (deepseekResult.data?.code === 0 && deepseekResult.data?.data?.biz_data) {
-        const bizData = deepseekResult.data.data.biz_data;
-        const totalEstimation = parseInt(bizData.total_available_token_estimation) || 0;
-        const monthlyUsage = parseInt(bizData.monthly_token_usage) || 0;
-        const total = monthlyUsage + totalEstimation;
-        const pct = total > 0 ? Math.round((monthlyUsage / total) * 100) : 0;
-        usageItems.push({ name: 'DeepSeek-余额', percentage: pct });
         // 更新缓存
         await chrome.storage.local.set({ deepseekCache: deepseekResult.data, deepseekCacheTime: Date.now() });
       }
