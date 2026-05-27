@@ -44,6 +44,17 @@
       </div>
       <div id="glmSkeleton" class="content">
         <div class="usage-card">
+          <div class="skeleton-line w30" style="margin-bottom:6px"></div>
+          <div class="skeleton-line w50" style="height:22px;margin-bottom:8px"></div>
+          <div class="skeleton-line w80" style="height:1px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1"><div class="skeleton-line w70" style="height:20px;margin-bottom:4px"></div><div class="skeleton-line w40"></div></div>
+            <div style="flex:1"><div class="skeleton-line w70" style="height:20px;margin-bottom:4px"></div><div class="skeleton-line w40"></div></div>
+            <div style="flex:1"><div class="skeleton-line w70" style="height:20px;margin-bottom:4px"></div><div class="skeleton-line w40"></div></div>
+          </div>
+          <div class="skeleton-line w50" style="margin-top:8px"></div>
+        </div>
+        <div class="usage-card">
           <div class="skeleton-line w60"></div>
           <div class="skeleton-bar"></div>
           <div class="skeleton-line w40"></div>
@@ -55,6 +66,29 @@
         </div>
       </div>
       <div id="glmContent" class="content" style="display:none">
+        <div class="usage-card glm-balance-card">
+          <div class="glm-balance-label">account.balance</div>
+          <div class="glm-balance-row">
+            <span id="glmBalance" class="glm-balance-amount">--</span>
+            <span class="glm-balance-dot" id="glmBalanceDot"></span>
+          </div>
+          <div class="glm-balance-divider"></div>
+          <div class="glm-balance-grid">
+            <div class="glm-balance-item">
+              <div id="glmRechargeAmount" class="glm-balance-val">--</div>
+              <div class="glm-balance-lbl">累计充值</div>
+            </div>
+            <div class="glm-balance-item">
+              <div id="glmTotalSpend" class="glm-balance-val">--</div>
+              <div class="glm-balance-lbl">累计花费</div>
+            </div>
+            <div class="glm-balance-item">
+              <div id="glmTodaySpend" class="glm-balance-val">--</div>
+              <div class="glm-balance-lbl">今日花费</div>
+            </div>
+          </div>
+          <div class="glm-balance-footnote">bigmodel.cn/api/biz/account/query-customer-account-report</div>
+        </div>
         <div class="usage-card">
           <div class="usage-header">
             <span class="usage-label">Tokens</span>

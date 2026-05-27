@@ -18,6 +18,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handlers = {
     getGLMToken: handleGetGLMToken,
     fetchGLMUsage: handleFetchGLMUsage,
+    fetchGLMBalance: handleFetchGLMBalance,
     getMiniMaxCookies: handleGetMiniMaxCookies,
     fetchMiniMaxToken: handleFetchMiniMaxToken,
     fetchMiniMaxUsage: handleFetchMiniMaxUsage,
@@ -58,6 +59,35 @@ async function handleFetchGLMUsage({ token }) {
   try {
     const resp = await fetch(
       'https://bigmodel.cn/api/monitor/usage/quota/limit',
+      {
+        headers: {
+          accept: 'application/json, text/plain, */*',
+          authorization: token,
+          'set-language': 'zh',
+        },
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+    const data = await resp.json();
+    return { data };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    throw err;
+  }
+}
+
+// 请求 GLM 余额 API
+async function handleFetchGLMBalance({ token }) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+  try {
+    const resp = await fetch(
+      'https://bigmodel.cn/api/biz/account/query-customer-account-report',
       {
         headers: {
           accept: 'application/json, text/plain, */*',

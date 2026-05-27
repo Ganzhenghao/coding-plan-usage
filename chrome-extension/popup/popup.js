@@ -26,6 +26,11 @@ const els = {
   glmError: $('#glmError'),
   glmErrorMsg: $('#glmErrorMsg'),
   glmErrorBtn: $('#glmErrorBtn'),
+  glmBalance: $('#glmBalance'),
+  glmBalanceDot: $('#glmBalanceDot'),
+  glmRechargeAmount: $('#glmRechargeAmount'),
+  glmTotalSpend: $('#glmTotalSpend'),
+  glmTodaySpend: $('#glmTodaySpend'),
   glmTokensPercent: $('#glmTokensPercent'),
   glmTokensProgress: $('#glmTokensProgress'),
   glmTokensUsage: $('#glmTokensUsage'),
@@ -271,6 +276,9 @@ async function fetchGLMData() {
 
   renderGLMData(data.data);
   chrome.storage.local.set({ glmCache: data.data, glmCacheTime: Date.now() });
+
+  // 获取余额（独立请求，不阻塞用量展示）
+  fetchGLMBalance(tokenResult.token);
 }
 
 function renderGLMData(data) {
@@ -334,6 +342,46 @@ els.glmLoginBtn.addEventListener('click', () => {
     url: 'https://bigmodel.cn/login?redirect=%2Fusercenter%2Fsettings%2Faccount',
   });
 });
+
+// ========== GLM 余额获取 ==========
+async function fetchGLMBalance(token) {
+  const result = await sendMessage({
+    type: 'fetchGLMBalance',
+    token,
+  });
+
+  if (result && result.data && result.data.code === 200 && result.data.data) {
+    renderGLMBalance(result.data.data);
+    chrome.storage.local.set({ glmBalanceCache: result.data.data, glmBalanceCacheTime: Date.now() });
+  }
+}
+
+function renderGLMBalance(data) {
+  const availableBalance = parseFloat(data.availableBalance) || 0;
+  const rechargeAmount = parseFloat(data.rechargeAmount) || 0;
+  const totalSpendAmount = parseFloat(data.totalSpendAmount) || 0;
+  const todaySpendAmount = data.todaySpendAmount != null ? parseFloat(data.todaySpendAmount) : null;
+
+  // 可用余额 — 整数小数分离展示
+  const cls = availableBalance <= 0 ? ' danger' : availableBalance <= 5 ? ' warning' : '';
+  const [intPart, decPart] = availableBalance.toFixed(2).split('.');
+  els.glmBalance.innerHTML = '¥' + intPart + '<span class="decimal">.' + decPart + '</span>';
+  els.glmBalance.className = 'glm-balance-amount' + cls;
+  els.glmBalanceDot.className = 'glm-balance-dot' + cls;
+
+  // 累计充值
+  els.glmRechargeAmount.textContent = '¥' + rechargeAmount.toFixed(2);
+
+  // 累计花费
+  els.glmTotalSpend.textContent = '¥' + totalSpendAmount.toFixed(2);
+
+  // 今日花费
+  if (todaySpendAmount != null) {
+    els.glmTodaySpend.textContent = '¥' + todaySpendAmount.toFixed(2);
+  } else {
+    els.glmTodaySpend.textContent = '--';
+  }
+}
 
 // ========== MiniMax 数据获取 ==========
 async function fetchMiniMaxData() {
@@ -931,6 +979,7 @@ async function init() {
   const stored = await chrome.storage.local.get([
     'lastTab',
     'glmCache',
+    'glmBalanceCache',
     'minimaxCache',
     'deepseekCache',
     'xiaomiCache',
@@ -947,6 +996,9 @@ async function init() {
   // 先用缓存渲染
   if (stored.glmCache) {
     renderGLMData(stored.glmCache);
+  }
+  if (stored.glmBalanceCache) {
+    renderGLMBalance(stored.glmBalanceCache);
   }
   if (stored.minimaxCache) {
     renderMiniMaxData(stored.minimaxCache);
