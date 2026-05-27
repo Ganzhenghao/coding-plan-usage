@@ -2,9 +2,21 @@
 // 从 platform.deepseek.com 的 localStorage 读取 userToken 并同步到 chrome.storage.local
 
 (function () {
+  // 从 localStorage 提取 token（userToken 存储格式为 {"value":"xxx","__version":"0"}）
+  function extractToken() {
+    const raw = localStorage.getItem('userToken');
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed.value || null;
+    } catch {
+      return raw;
+    }
+  }
+
   // 同步 token 到 chrome.storage.local
   function syncToken() {
-    const token = localStorage.getItem('userToken');
+    const token = extractToken();
     if (token) {
       chrome.storage.local.set({ deepseekToken: token });
     } else {
@@ -19,8 +31,7 @@
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'getDeepSeekTokenFromPage') {
       syncToken();
-      const token = localStorage.getItem('userToken');
-      sendResponse({ token: token || null });
+      sendResponse({ token: extractToken() });
       return true;
     }
   });

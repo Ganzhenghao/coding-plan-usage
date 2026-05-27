@@ -435,6 +435,7 @@ async function fetchDeepSeekData() {
   }
 
   const data = result.data;
+  console.log('[CodingPlan] DeepSeek raw data:', JSON.stringify(data));
   if (!data || data.code !== 0 || !data.data?.biz_data) {
     showDeepSeekState('error');
     if (data && data.code !== 0) {
