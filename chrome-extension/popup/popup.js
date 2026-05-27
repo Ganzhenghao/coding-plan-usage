@@ -45,6 +45,20 @@ const els = {
   minimaxErrorBtn: $('#minimaxErrorBtn'),
   minimaxCards: $('#minimaxCards'),
   minimaxGoUsageBtn: $('#minimaxGoUsageBtn'),
+  // DeepSeek
+  deepseekPanel: $('#deepseekPanel'),
+  deepseekLogin: $('#deepseekLogin'),
+  deepseekLoginBtn: $('#deepseekLoginBtn'),
+  deepseekSkeleton: $('#deepseekSkeleton'),
+  deepseekContent: $('#deepseekContent'),
+  deepseekError: $('#deepseekError'),
+  deepseekErrorMsg: $('#deepseekErrorMsg'),
+  deepseekErrorBtn: $('#deepseekErrorBtn'),
+  deepseekBalance: $('#deepseekBalance'),
+  deepseekTokenEstimation: $('#deepseekTokenEstimation'),
+  deepseekMonthlyUsage: $('#deepseekMonthlyUsage'),
+  deepseekMonthlyCost: $('#deepseekMonthlyCost'),
+  deepseekGoUsageBtn: $('#deepseekGoUsageBtn'),
   // GLM
   glmGoUsageBtn: $('#glmGoUsageBtn'),
   // Header
@@ -100,6 +114,13 @@ function getUnitName(unit) {
   return map[unit] || '';
 }
 
+function formatTokenCount(num) {
+  const n = parseInt(num) || 0;
+  if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+  if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+  return n.toLocaleString();
+}
+
 function getAlertThresholds(stored) {
   return ALERT_THRESHOLD_KEYS.map(
     (key, index) => stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index]
@@ -150,12 +171,21 @@ function showMinimaxState(state) {
   els.minimaxError.style.display = state === 'error' ? 'block' : 'none';
 }
 
+// ========== DeepSeek 状态切换 ==========
+function showDeepSeekState(state) {
+  els.deepseekLogin.style.display = state === 'login' ? 'block' : 'none';
+  els.deepseekSkeleton.style.display = state === 'loading' ? 'flex' : 'none';
+  els.deepseekContent.style.display = state === 'content' ? 'flex' : 'none';
+  els.deepseekError.style.display = state === 'error' ? 'block' : 'none';
+}
+
 // ========== Tab 切换 ==========
 function switchTab(tab) {
   currentTab = tab;
   els.tabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
   els.glmPanel.classList.toggle('active', tab === 'glm');
   els.minimaxPanel.classList.toggle('active', tab === 'minimax');
+  els.deepseekPanel.classList.toggle('active', tab === 'deepseek');
   chrome.storage.local.set({ lastTab: tab });
 }
 
@@ -370,6 +400,99 @@ function renderMiniMaxData(data) {
 // MiniMax 未配置 Key → 跳转设置
 els.minimaxGoSettingsBtn.addEventListener('click', openSettings);
 
+// ========== DeepSeek 数据获取 ==========
+async function fetchDeepSeekData() {
+  showDeepSeekState('loading');
+
+  // 先尝试从 storage 获取 token
+  let tokenResult = await sendMessage({ type: 'getDeepSeekToken' });
+
+  // 如果没有 token，尝试从已打开的页面刷新
+  if (!tokenResult || tokenResult.error === 'NOT_LOGGED_IN') {
+    const refreshResult = await sendMessage({ type: 'refreshDeepSeekToken' });
+    if (refreshResult && refreshResult.token) {
+      tokenResult = refreshResult;
+    }
+  }
+
+  if (!tokenResult || tokenResult.error) {
+    showDeepSeekState('login');
+    return;
+  }
+
+  const result = await sendMessage({
+    type: 'fetchDeepSeekUsage',
+    token: tokenResult.token,
+  });
+
+  if (!result || result.error) {
+    const isTimeout = result && result.error === 'TIMEOUT';
+    showDeepSeekState('error');
+    els.deepseekErrorMsg.textContent = isTimeout ? '请求超时，请检查网络后重试' : '获取 DeepSeek 用量失败';
+    els.deepseekErrorBtn.textContent = '重试';
+    els.deepseekErrorBtn.onclick = fetchDeepSeekData;
+    return;
+  }
+
+  const data = result.data;
+  if (!data || data.code !== 0 || !data.data?.biz_data) {
+    showDeepSeekState('error');
+    if (data && data.code !== 0) {
+      chrome.storage.local.remove('deepseekToken');
+    }
+    els.deepseekErrorMsg.textContent = '数据格式异常，请稍后重试';
+    els.deepseekErrorBtn.textContent = '重试';
+    els.deepseekErrorBtn.onclick = fetchDeepSeekData;
+    return;
+  }
+
+  renderDeepSeekData(data);
+  chrome.storage.local.set({ deepseekCache: data, deepseekCacheTime: Date.now() });
+}
+
+function renderDeepSeekData(data) {
+  showDeepSeekState('content');
+  const bizData = data.data.biz_data;
+
+  // 余额
+  const normalBalance = bizData.normal_wallets?.[0]?.balance || '0';
+  const balanceNum = parseFloat(normalBalance);
+  els.deepseekBalance.textContent = '¥' + balanceNum.toFixed(2);
+
+  // Token 估算
+  const tokenEstimation = parseInt(bizData.total_available_token_estimation) || 0;
+  els.deepseekTokenEstimation.textContent = '约 ' + formatTokenCount(tokenEstimation) + ' tokens';
+
+  // 本月统计
+  const monthlyUsage = parseInt(bizData.monthly_token_usage) || 0;
+  els.deepseekMonthlyUsage.textContent = formatTokenCount(monthlyUsage);
+
+  const monthlyCost = parseFloat(bizData.monthly_costs?.[0]?.amount || '0');
+  els.deepseekMonthlyCost.textContent = '¥' + monthlyCost.toFixed(2);
+
+  // 计算余额消耗百分比用于预警
+  const total = monthlyUsage + tokenEstimation;
+  const pct = total > 0 ? Math.round((monthlyUsage / total) * 100) : 0;
+
+  // 余额低时改变颜色
+  const cls = getProgressClass(pct);
+  els.deepseekBalance.className = 'usage-percent' + (cls ? ' ' + cls : '');
+
+  checkThresholds([{ name: 'DeepSeek-余额', percentage: pct }]);
+}
+
+els.deepseekLoginBtn.addEventListener('click', () => {
+  chrome.tabs.create({
+    url: 'https://platform.deepseek.com/sign_in',
+  });
+});
+
+els.deepseekGoUsageBtn.addEventListener('click', () => {
+  chrome.tabs.create({
+    url: 'https://platform.deepseek.com/usage',
+  });
+});
+
 // ========== 预警阈值检查 ==========
 async function checkThresholds(usageItems) {
   const stored = await chrome.storage.local.get([
@@ -432,9 +555,13 @@ els.goUsageBtn.addEventListener('click', () => {
     chrome.tabs.create({
       url: 'https://bigmodel.cn/usercenter/glm-coding/usage',
     });
-  } else {
+  } else if (currentTab === 'minimax') {
     chrome.tabs.create({
       url: 'https://platform.minimaxi.com/user-center/payment/token-plan',
+    });
+  } else if (currentTab === 'deepseek') {
+    chrome.tabs.create({
+      url: 'https://platform.deepseek.com/usage',
     });
   }
 });
@@ -614,7 +741,7 @@ async function refreshAll() {
   isRefreshing = true;
   els.refreshBtn.classList.add('loading');
 
-  await Promise.all([fetchGLMData(), fetchMiniMaxData()]);
+  await Promise.all([fetchGLMData(), fetchMiniMaxData(), fetchDeepSeekData()]);
 
   isRefreshing = false;
   els.refreshBtn.classList.remove('loading');
@@ -642,6 +769,7 @@ async function init() {
     'lastTab',
     'glmCache',
     'minimaxCache',
+    'deepseekCache',
     'autoRefreshEnabled',
     'autoRefreshInterval',
     'alertEnabled',
@@ -658,6 +786,9 @@ async function init() {
   }
   if (stored.minimaxCache) {
     renderMiniMaxData(stored.minimaxCache);
+  }
+  if (stored.deepseekCache) {
+    renderDeepSeekData(stored.deepseekCache);
   }
 
   // 恢复自动刷新设置
