@@ -214,6 +214,13 @@ function showXiaomiState(state) {
 }
 
 // ========== Tab 切换 ==========
+const tabFetchMap = {
+  glm: fetchGLMData,
+  minimax: fetchMiniMaxData,
+  deepseek: fetchDeepSeekData,
+  xiaomi: fetchXiaomiData,
+};
+
 function switchTab(tab) {
   currentTab = tab;
   els.tabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
@@ -222,6 +229,7 @@ function switchTab(tab) {
   els.deepseekPanel.classList.toggle('active', tab === 'deepseek');
   els.xiaomiPanel.classList.toggle('active', tab === 'xiaomi');
   chrome.storage.local.set({ lastTab: tab });
+  tabFetchMap[tab]();
 }
 
 els.tabs.forEach((tab) => {
@@ -529,6 +537,33 @@ els.deepseekGoUsageBtn.addEventListener('click', () => {
   });
 });
 
+// ========== Xiaomi 自动登录 ==========
+function autoLoginXiaomi(loginUrl) {
+  return new Promise((resolve) => {
+    chrome.tabs.create({ url: loginUrl, active: false }, (tab) => {
+      const timeout = setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(listener);
+        chrome.tabs.remove(tab.id).catch(() => {});
+        resolve(false);
+      }, 15000);
+
+      function listener(tabId, changeInfo) {
+        if (tabId === tab.id && changeInfo.status === 'complete') {
+          clearTimeout(timeout);
+          chrome.tabs.onUpdated.removeListener(listener);
+          // 等待 Cookie 写入
+          setTimeout(() => {
+            chrome.tabs.remove(tab.id).catch(() => {});
+            resolve(true);
+          }, 1000);
+        }
+      }
+
+      chrome.tabs.onUpdated.addListener(listener);
+    });
+  });
+}
+
 // ========== Xiaomi 数据获取 ==========
 async function fetchXiaomiData() {
   showXiaomiState('loading');
@@ -552,8 +587,12 @@ async function fetchXiaomiData() {
 
   const data = result.data;
 
-  // 401 表示未登录
+  // 401 表示未登录，尝试自动登录
   if (data && data.code === 401 && data.loginUrl) {
+    const loggedIn = await autoLoginXiaomi(data.loginUrl);
+    if (loggedIn) {
+      return fetchXiaomiData();
+    }
     showXiaomiState('error');
     els.xiaomiErrorMsg.textContent = '请先登录小米平台';
     els.xiaomiErrorBtn.textContent = '前往登录';

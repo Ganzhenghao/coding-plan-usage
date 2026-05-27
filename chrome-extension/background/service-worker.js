@@ -205,7 +205,7 @@ async function handleFetchDeepSeekUsage({ token }) {
 // 获取 platform.xiaomimimo.com 的所有 Cookie
 async function handleGetXiaomiCookies() {
   const cookies = await chrome.cookies.getAll({
-    domain: 'xiaomimimo.com',
+    url: 'https://platform.xiaomimimo.com',
   });
   if (cookies && cookies.length > 0) {
     const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
