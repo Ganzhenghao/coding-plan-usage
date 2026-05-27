@@ -26,6 +26,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     fetchDeepSeekUsage: handleFetchDeepSeekUsage,
     getXiaomiCookies: handleGetXiaomiCookies,
     fetchXiaomiUsage: handleFetchXiaomiUsage,
+    xiaomiAutoLogin: handleXiaomiAutoLogin,
   };
 
   const handler = handlers[message.type];
@@ -199,6 +200,25 @@ async function handleFetchDeepSeekUsage({ token }) {
       throw new Error('TIMEOUT');
     }
     throw err;
+  }
+}
+
+// Xiaomi 静默自动登录：通过 fetch 走 SSO 重定向链恢复 Cookie
+async function handleXiaomiAutoLogin({ loginUrl }) {
+  try {
+    await fetch(loginUrl, {
+      credentials: 'include',
+      redirect: 'follow',
+    });
+
+    // 检查 SSO 是否成功设置了 Cookie
+    const cookies = await chrome.cookies.getAll({
+      url: 'https://platform.xiaomimimo.com',
+    });
+    return { success: cookies.length > 0 };
+  } catch (err) {
+    console.error('[CodingPlan] Xiaomi 自动登录失败:', err);
+    return { success: false };
   }
 }
 
