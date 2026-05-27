@@ -33,6 +33,7 @@
       <button class="tab active" data-tab="glm">GLM</button>
       <button class="tab" data-tab="minimax">Minimax</button>
       <button class="tab" data-tab="deepseek">DeepSeek</button>
+      <button class="tab" data-tab="xiaomi">Xiaomi</button>
     </div>
 
     <!-- GLM 面板 -->
@@ -180,6 +181,78 @@
       <div id="deepseekError" class="error-prompt" style="display:none">
         <p id="deepseekErrorMsg"></p>
         <button id="deepseekErrorBtn" class="primary-btn"></button>
+      </div>
+    </div>
+
+    <!-- Xiaomi 面板 -->
+    <div id="xiaomiPanel" class="panel">
+      <div id="xiaomiSkeleton" class="content">
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-line w40"></div>
+        </div>
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-line w40"></div>
+        </div>
+        <div class="usage-card">
+          <div class="skeleton-line w60"></div>
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-line w40"></div>
+        </div>
+      </div>
+      <div id="xiaomiContent" class="content" style="display:none">
+        <!-- 月度用量卡片 -->
+        <div class="usage-card">
+          <div class="usage-header">
+            <span class="usage-label">月度用量</span>
+            <span id="xiaomiMonthPercent" class="usage-percent">--</span>
+          </div>
+          <div class="progress-bar">
+            <div id="xiaomiMonthProgress" class="progress-fill"></div>
+          </div>
+          <div class="usage-detail">
+            <span id="xiaomiMonthUsage">--</span>
+          </div>
+        </div>
+        <!-- 套餐总量卡片 -->
+        <div class="usage-card">
+          <div class="usage-header">
+            <span class="usage-label">套餐总量</span>
+            <span id="xiaomiPlanPercent" class="usage-percent">--</span>
+          </div>
+          <div class="progress-bar">
+            <div id="xiaomiPlanProgress" class="progress-fill"></div>
+          </div>
+          <div class="usage-detail">
+            <span id="xiaomiPlanUsage">--</span>
+          </div>
+        </div>
+        <!-- 补偿额度卡片（limit 为 0 时隐藏） -->
+        <div id="xiaomiCompensationCard" class="usage-card">
+          <div class="usage-header">
+            <span class="usage-label">补偿额度</span>
+            <span id="xiaomiCompensationPercent" class="usage-percent">--</span>
+          </div>
+          <div class="progress-bar">
+            <div id="xiaomiCompensationProgress" class="progress-fill"></div>
+          </div>
+          <div class="usage-detail">
+            <span id="xiaomiCompensationUsage">--</span>
+          </div>
+        </div>
+        <button id="xiaomiGoUsageBtn" class="go-usage-btn">
+          <svg viewBox="0 0 24 24" width="14" height="14">
+            <path fill="currentColor" d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+          </svg>
+          查看详细用量
+        </button>
+      </div>
+      <div id="xiaomiError" class="error-prompt" style="display:none">
+        <p id="xiaomiErrorMsg"></p>
+        <button id="xiaomiErrorBtn" class="primary-btn"></button>
       </div>
     </div>
 
