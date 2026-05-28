@@ -637,10 +637,10 @@ async function fetchXiaomiData() {
 function renderXiaomiData(data) {
   showXiaomiState('content');
 
-  // 月度用量
+  // 月度用量（percent 是小数格式如 0.0444，转百分比）
   const monthItem = data.monthUsage?.items?.[0];
   if (monthItem) {
-    const pct = parseFloat(monthItem.percent) || 0;
+    const pct = (parseFloat(monthItem.percent) || 0) * 100;
     const cls = getProgressClass(pct);
     els.xiaomiMonthPercent.textContent = pct.toFixed(1) + '%';
     els.xiaomiMonthPercent.className = 'usage-percent' + (cls ? ' ' + cls : '');
@@ -651,11 +651,11 @@ function renderXiaomiData(data) {
     els.xiaomiMonthUsage.textContent = `已用 ${formatXiaomiToken(monthItem.used)} / 总量 ${formatXiaomiToken(monthItem.limit)}`;
   }
 
-  // 套餐总量
+  // 套餐总量（percent 是小数格式如 0.04，转百分比）
   const usageItems = data.usage?.items || [];
   const planItem = usageItems.find((i) => i.name === 'plan_total_token');
   if (planItem) {
-    const pct = parseFloat(planItem.percent) || 0;
+    const pct = (parseFloat(planItem.percent) || 0) * 100;
     const cls = getProgressClass(pct);
     els.xiaomiPlanPercent.textContent = pct.toFixed(1) + '%';
     els.xiaomiPlanPercent.className = 'usage-percent' + (cls ? ' ' + cls : '');
@@ -670,7 +670,7 @@ function renderXiaomiData(data) {
   const compensationItem = usageItems.find((i) => i.name === 'compensation_total_token');
   if (compensationItem && compensationItem.limit > 0) {
     els.xiaomiCompensationCard.style.display = '';
-    const pct = parseFloat(compensationItem.percent) || 0;
+    const pct = (parseFloat(compensationItem.percent) || 0) * 100;
     const cls = getProgressClass(pct);
     els.xiaomiCompensationPercent.textContent = pct.toFixed(1) + '%';
     els.xiaomiCompensationPercent.className = 'usage-percent' + (cls ? ' ' + cls : '');
@@ -686,10 +686,10 @@ function renderXiaomiData(data) {
   // 收集用量数据进行阈值检查
   const xiaomiUsageItems = [];
   if (monthItem) {
-    xiaomiUsageItems.push({ name: 'Xiaomi-月度用量', percentage: parseFloat(monthItem.percent) || 0 });
+    xiaomiUsageItems.push({ name: 'Xiaomi-月度用量', percentage: (parseFloat(monthItem.percent) || 0) * 100 });
   }
   if (planItem) {
-    xiaomiUsageItems.push({ name: 'Xiaomi-套餐总量', percentage: parseFloat(planItem.percent) || 0 });
+    xiaomiUsageItems.push({ name: 'Xiaomi-套餐总量', percentage: (parseFloat(planItem.percent) || 0) * 100 });
   }
   checkThresholds(xiaomiUsageItems);
 }

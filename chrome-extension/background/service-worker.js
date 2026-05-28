@@ -426,15 +426,17 @@ async function checkUsageInBackground() {
     const xiaomiResult = await handleFetchXiaomiUsage({ cookies: xiaomiCookieResult.cookies || '' });
     if (xiaomiResult.data?.code === 0 && xiaomiResult.data?.data) {
       const xiaomiData = xiaomiResult.data.data;
-      // 月度用量
+      // 月度用量（percent 是小数格式如 0.0444，转百分比）
       const monthItem = xiaomiData.monthUsage?.items?.[0];
       if (monthItem) {
-        usageItems.push({ name: 'Xiaomi-月度用量', percentage: monthItem.percent || 0 });
+        const pct = (parseFloat(monthItem.percent) || 0) * 100;
+        usageItems.push({ name: 'Xiaomi-月度用量', percentage: pct });
       }
-      // 套餐总量
+      // 套餐总量（percent 是小数格式如 0.04，转百分比）
       const planItem = xiaomiData.usage?.items?.find((i) => i.name === 'plan_total_token');
       if (planItem) {
-        usageItems.push({ name: 'Xiaomi-套餐总量', percentage: planItem.percent || 0 });
+        const pct = (parseFloat(planItem.percent) || 0) * 100;
+        usageItems.push({ name: 'Xiaomi-套餐总量', percentage: pct });
       }
       // 更新缓存
       await chrome.storage.local.set({ xiaomiCache: xiaomiResult.data, xiaomiCacheTime: Date.now() });
