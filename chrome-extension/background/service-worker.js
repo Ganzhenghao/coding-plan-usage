@@ -391,11 +391,9 @@ async function checkUsageInBackground() {
         const models = minimaxResult.data.model_remains;
         
         models.forEach((model) => {
-          const total = model.current_interval_total_count || 0;
-          const remaining = model.current_interval_usage_count || 0;
-          const used = total - remaining;
-          const pct = total > 0 ? Math.round((used / total) * 100) : 0;
-          usageItems.push({ name: 'MiniMax-' + model.model_name, percentage: pct });
+          const remaining = model.current_interval_remaining_percent ?? 100;
+          const usedPct = 100 - remaining;
+          usageItems.push({ name: 'MiniMax-' + model.model_name, percentage: usedPct });
         });
         
         // 更新缓存

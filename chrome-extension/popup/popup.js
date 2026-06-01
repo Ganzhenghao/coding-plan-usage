@@ -126,6 +126,25 @@ function formatTime(timestamp) {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+function formatDuration(ms) {
+  if (!ms || ms <= 0) return '--';
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    const h = hours % 24;
+    return h > 0 ? `${days}天${h}小时` : `${days}天`;
+  }
+  if (hours > 0) {
+    const m = minutes % 60;
+    return m > 0 ? `${hours}小时${m}分` : `${hours}小时`;
+  }
+  if (minutes > 0) return `${minutes}分钟`;
+  return `${seconds}秒`;
+}
+
 function getProgressClass(percentage) {
   if (percentage >= 90) return 'danger';
   if (percentage >= 70) return 'warning';
@@ -437,54 +456,59 @@ function renderMiniMaxData(data) {
     return;
   }
 
+  const minimaxUsageItems = [];
+
   models.forEach((model) => {
-    const total = model.current_interval_total_count || 0;
-    const remaining = model.current_interval_usage_count || 0;
-    const used = total - remaining;
-    const pct = total > 0 ? Math.round((used / total) * 100) : 0;
-    const cls = getProgressClass(pct);
+    const intervalRemaining = model.current_interval_remaining_percent ?? 100;
+    const intervalUsedPct = 100 - intervalRemaining;
+    const intervalCls = getProgressClass(intervalUsedPct);
+
+    const weeklyRemaining = model.current_weekly_remaining_percent ?? 100;
+    const weeklyUsedPct = 100 - weeklyRemaining;
+    const weeklyCls = getProgressClass(weeklyUsedPct);
 
     const card = document.createElement('div');
     card.className = 'model-card';
     card.innerHTML = `
       <div class="model-name">${model.model_name}</div>
-      <div class="model-stats">
-        <div class="stat-item">
-          <div class="stat-value ${cls}">${used}</div>
-          <div class="stat-label">已用</div>
+      <div class="model-section">
+        <div class="section-header">
+          <span class="section-label">本周期</span>
+          <span class="section-remaining">剩余 ${intervalRemaining}%</span>
         </div>
-        <div class="stat-item">
-          <div class="stat-value">${total}</div>
-          <div class="stat-label">总量</div>
+        <div class="model-progress">
+          <div class="progress-bar">
+            <div class="progress-fill ${intervalCls}" data-target="${intervalUsedPct}" style="width:0%"></div>
+          </div>
+          <span class="percent">${intervalUsedPct}%</span>
         </div>
-        <div class="stat-item">
-          <div class="stat-value" style="color:#10b981">${remaining}</div>
-          <div class="stat-label">剩余</div>
-        </div>
+        <div class="section-meta">剩余约 ${formatDuration(model.remains_time)} · 重置于 ${formatTime(model.end_time)}</div>
       </div>
-      <div class="model-progress">
-        <div class="progress-bar">
-          <div class="progress-fill ${cls}" style="width:0%"></div>
+      <div class="model-section">
+        <div class="section-header">
+          <span class="section-label">本周</span>
+          <span class="section-remaining">剩余 ${weeklyRemaining}%</span>
         </div>
-        <span class="percent">${pct}%</span>
+        <div class="model-progress">
+          <div class="progress-bar">
+            <div class="progress-fill ${weeklyCls}" data-target="${weeklyUsedPct}" style="width:0%"></div>
+          </div>
+          <span class="percent">${weeklyUsedPct}%</span>
+        </div>
+        <div class="section-meta">剩余约 ${formatDuration(model.weekly_remains_time)}</div>
       </div>
-      <div class="model-reset-time">重置时间: ${formatTime(model.end_time)}</div>
     `;
     els.minimaxCards.appendChild(card);
 
     requestAnimationFrame(() => {
-      card.querySelector('.progress-fill').style.width = pct + '%';
+      card.querySelectorAll('.progress-fill').forEach((fill) => {
+        fill.style.width = fill.dataset.target + '%';
+      });
     });
+
+    minimaxUsageItems.push({ name: 'MiniMax-' + model.model_name, percentage: intervalUsedPct });
   });
 
-  // 收集 MiniMax 用量数据进行阈值检查
-  const minimaxUsageItems = models.map((model) => {
-    const total = model.current_interval_total_count || 0;
-    const remaining = model.current_interval_usage_count || 0;
-    const used = total - remaining;
-    const pct = total > 0 ? Math.round((used / total) * 100) : 0;
-    return { name: 'MiniMax-' + model.model_name, percentage: pct };
-  });
   checkThresholds(minimaxUsageItems);
 }
 
