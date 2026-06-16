@@ -28,7 +28,10 @@ const els = {
   glmErrorBtn: $('#glmErrorBtn'),
   glmBalance: $('#glmBalance'),
   glmBalanceDot: $('#glmBalanceDot'),
+  glmBalanceTotal: $('#glmBalanceTotal'),
   glmRechargeAmount: $('#glmRechargeAmount'),
+  glmGiveAmount: $('#glmGiveAmount'),
+  glmFrozenBalance: $('#glmFrozenBalance'),
   glmTotalSpend: $('#glmTotalSpend'),
   glmTodaySpend: $('#glmTodaySpend'),
   glmTokensPercent: $('#glmTokensPercent'),
@@ -377,7 +380,10 @@ async function fetchGLMBalance(token) {
 
 function renderGLMBalance(data) {
   const availableBalance = parseFloat(data.availableBalance) || 0;
+  const balance = parseFloat(data.balance) || 0;
   const rechargeAmount = parseFloat(data.rechargeAmount) || 0;
+  const giveAmount = parseFloat(data.giveAmount) || 0;
+  const frozenBalance = parseFloat(data.frozenBalance) || 0;
   const totalSpendAmount = parseFloat(data.totalSpendAmount) || 0;
   const todaySpendAmount = data.todaySpendAmount != null ? parseFloat(data.todaySpendAmount) : null;
 
@@ -388,8 +394,17 @@ function renderGLMBalance(data) {
   els.glmBalance.className = 'glm-balance-amount' + cls;
   els.glmBalanceDot.className = 'glm-balance-dot' + cls;
 
+  // 账户余额
+  els.glmBalanceTotal.textContent = '¥' + balance.toFixed(2);
+
   // 累计充值
   els.glmRechargeAmount.textContent = '¥' + rechargeAmount.toFixed(2);
+
+  // 赠送金额
+  els.glmGiveAmount.textContent = '¥' + giveAmount.toFixed(2);
+
+  // 冻结余额
+  els.glmFrozenBalance.textContent = '¥' + frozenBalance.toFixed(2);
 
   // 累计花费
   els.glmTotalSpend.textContent = '¥' + totalSpendAmount.toFixed(2);
