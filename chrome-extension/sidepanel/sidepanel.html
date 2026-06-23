@@ -110,6 +110,69 @@
         </div>
       </div>
     </div>
+
+  <!-- 设置抽屉 -->
+  <div id="sbSettingsOverlay" class="sb-settings-overlay">
+    <div class="sb-settings-panel">
+      <div class="sb-settings-header">
+        <h2>设置</h2>
+        <button id="sbSettingsCloseBtn" class="sb-settings-close">×</button>
+      </div>
+      <div class="sb-settings-body">
+
+        <section class="sb-settings-section">
+          <div class="sb-settings-label">MiniMax API Key</div>
+          <input id="sbApiKeyInput" type="text" class="sb-settings-input" placeholder="请输入 API Key">
+          <div class="sb-settings-actions">
+            <button id="sbSaveApiKeyBtn" class="sb-settings-btn primary">保存</button>
+            <button id="sbAutoGetBtn" class="sb-settings-btn">自动获取</button>
+          </div>
+          <div id="sbApiKeyHint" class="sb-settings-hint"></div>
+        </section>
+
+        <section class="sb-settings-section">
+          <div class="sb-settings-label">自动刷新</div>
+          <label class="sb-switch">
+            <input type="checkbox" id="sbSettingsAutoToggle">
+            <span class="sb-switch-slider"></span>
+            <span class="sb-switch-label">启用自动刷新</span>
+          </label>
+          <select id="sbSettingsAutoInterval" class="sb-select" style="margin-top:8px;width:100%">
+            <option value="60">每 1 分钟</option>
+            <option value="300" selected>每 5 分钟</option>
+            <option value="600">每 10 分钟</option>
+            <option value="1800">每 30 分钟</option>
+          </select>
+        </section>
+
+        <section class="sb-settings-section">
+          <div class="sb-settings-label">用量预警</div>
+          <label class="sb-switch">
+            <input type="checkbox" id="sbAlertToggle">
+            <span class="sb-switch-slider"></span>
+            <span class="sb-switch-label">启用预警通知</span>
+          </label>
+          <div id="sbAlertOptions" class="sb-alert-options" style="display:none">
+            <div class="sb-alert-row">
+              <label>阈值 1</label>
+              <input type="number" id="sbAlertThreshold1" min="1" max="99" value="25">
+              <span>%</span>
+            </div>
+            <div class="sb-alert-row">
+              <label>阈值 2</label>
+              <input type="number" id="sbAlertThreshold2" min="1" max="99" value="50">
+              <span>%</span>
+            </div>
+            <div class="sb-alert-row">
+              <label>阈值 3</label>
+              <input type="number" id="sbAlertThreshold3" min="1" max="99" value="75">
+              <span>%</span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
   </div>
   <script src="sidepanel.js"></script>
 </body>

@@ -345,11 +345,137 @@ function renderXiaomi(data) {
   showCardState('sbCardXiaomi', 'content', { dotClass: cls });
 }
 
-// ========== openSettings 占位(Task 6 实现)==========
-function openSettings() {
-  // Task 6 中实现设置抽屉
-  console.warn('[CodingPlan] 设置抽屉尚未实现(Task 6)');
+// ========== 设置抽屉 ==========
+const ALERT_THRESHOLD_KEYS = ['alertThreshold1', 'alertThreshold2', 'alertThreshold3'];
+const DEFAULT_ALERT_THRESHOLDS = [25, 50, 75];
+
+function normalizeAlertThreshold(value, fallback) {
+  return Math.max(1, Math.min(99, value || fallback));
 }
+
+function normalizeAndSortAlertThresholds(values) {
+  return values
+    .map((value, index) => normalizeAlertThreshold(value, DEFAULT_ALERT_THRESHOLDS[index]))
+    .sort((a, b) => a - b);
+}
+
+function setApiKeyHint(msg, type) {
+  const el = document.getElementById('sbApiKeyHint');
+  el.textContent = msg;
+  el.className = 'sb-settings-hint' + (type ? ' ' + type : '');
+}
+
+function saveAlertThresholds(values) {
+  const normalized = normalizeAndSortAlertThresholds(values);
+  const payload = { notifiedAlerts: {} };
+  ALERT_THRESHOLD_KEYS.forEach((key, index) => {
+    payload[key] = normalized[index];
+    document.getElementById('sb' + key.charAt(0).toUpperCase() + key.slice(1)).value = normalized[index];
+  });
+  chrome.storage.local.set(payload);
+}
+
+function openSettings() {
+  document.getElementById('sbSettingsOverlay').classList.add('visible');
+  // 重新加载当前配置到表单
+  chrome.storage.local.get(
+    ['minimaxApiKey', 'autoRefreshEnabled', 'autoRefreshInterval', 'alertEnabled', ...ALERT_THRESHOLD_KEYS],
+    (stored) => {
+      document.getElementById('sbApiKeyInput').value = stored.minimaxApiKey || '';
+      document.getElementById('sbSettingsAutoToggle').checked = !!stored.autoRefreshEnabled;
+      if (stored.autoRefreshInterval) {
+        document.getElementById('sbSettingsAutoInterval').value = String(stored.autoRefreshInterval);
+      }
+      document.getElementById('sbAlertToggle').checked = !!stored.alertEnabled;
+      document.getElementById('sbAlertOptions').style.display = stored.alertEnabled ? 'flex' : 'none';
+      ALERT_THRESHOLD_KEYS.forEach((key, index) => {
+        const id = 'sb' + key.charAt(0).toUpperCase() + key.slice(1);
+        document.getElementById(id).value = stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index];
+      });
+    }
+  );
+  setApiKeyHint('', '');
+}
+
+function closeSettings() {
+  document.getElementById('sbSettingsOverlay').classList.remove('visible');
+}
+
+// Header 设置按钮
+document.getElementById('sbSettingsBtn').addEventListener('click', openSettings);
+document.getElementById('sbSettingsCloseBtn').addEventListener('click', closeSettings);
+document.getElementById('sbSettingsOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'sbSettingsOverlay') closeSettings();
+});
+
+// 保存 API Key
+document.getElementById('sbSaveApiKeyBtn').addEventListener('click', () => {
+  const key = document.getElementById('sbApiKeyInput').value.trim();
+  if (!key) {
+    setApiKeyHint('请输入 API Key', 'error');
+    return;
+  }
+  chrome.storage.local.set({ minimaxApiKey: key }, () => {
+    setApiKeyHint('保存成功', 'success');
+    setTimeout(() => {
+      closeSettings();
+      fetchMinimax();
+    }, 500);
+  });
+});
+
+// 自动获取 API Key
+document.getElementById('sbAutoGetBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('sbAutoGetBtn');
+  btn.disabled = true;
+  btn.textContent = '获取中...';
+  setApiKeyHint('', '');
+  try {
+    const apiKey = await autoFetchMinimaxKey();
+    if (apiKey) {
+      document.getElementById('sbApiKeyInput').value = apiKey;
+      setApiKeyHint('自动获取成功', 'success');
+      setTimeout(() => {
+        closeSettings();
+        fetchMinimax();
+      }, 800);
+    } else {
+      setApiKeyHint('自动获取失败,请检查是否已登录 MiniMax', 'error');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '自动获取';
+  }
+});
+
+// 抽屉内的自动刷新开关/间隔 — 改了即写 storage,Task 5 的 storage.onChanged 监听会同步 header 控件和 timer
+document.getElementById('sbSettingsAutoToggle').addEventListener('change', (e) => {
+  chrome.storage.local.set({ autoRefreshEnabled: e.target.checked });
+});
+document.getElementById('sbSettingsAutoInterval').addEventListener('change', (e) => {
+  const sec = parseInt(e.target.value, 10) || 300;
+  chrome.storage.local.set({ autoRefreshInterval: sec });
+});
+
+// 预警开关
+document.getElementById('sbAlertToggle').addEventListener('change', (e) => {
+  const enabled = e.target.checked;
+  document.getElementById('sbAlertOptions').style.display = enabled ? 'flex' : 'none';
+  chrome.storage.local.set({ alertEnabled: enabled });
+  if (!enabled) chrome.storage.local.set({ notifiedAlerts: {} });
+});
+
+// 预警阈值
+ALERT_THRESHOLD_KEYS.forEach((key, index) => {
+  const id = 'sb' + key.charAt(0).toUpperCase() + key.slice(1);
+  document.getElementById(id).addEventListener('change', () => {
+    const values = ALERT_THRESHOLD_KEYS.map((k, i) => {
+      const v = document.getElementById('sb' + k.charAt(0).toUpperCase() + k.slice(1)).value;
+      return parseInt(v, 10);
+    });
+    saveAlertThresholds(values);
+  });
+});
 
 // ========== 并行刷新 ==========
 let isRefreshing = false;
