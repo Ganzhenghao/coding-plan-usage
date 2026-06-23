@@ -37,6 +37,9 @@ build/
 # Sisyphus 工作流产物
 /.sisyphus/
 
+# Superpowers brainstorm mockups
+/.superpowers/
+
 
 ### STS ###
 .apt_generated
