@@ -147,6 +147,11 @@ function renderGLM(usage, balance) {
   const content = document.querySelector('#sbCardGLM .sb-content');
   content.innerHTML = html;
   showCardState('sbCardGLM', 'content', { dotClass: cls });
+
+  const items = [];
+  if (tokenLimit) items.push({ name: 'GLM-Tokens', percentage: tokenPct });
+  if (toolLimit) items.push({ name: 'GLM-MCP工具', percentage: toolPct });
+  checkThresholds(items);
 }
 
 // ========== MiniMax ==========
@@ -223,6 +228,12 @@ function renderMinimax(data) {
   const html = rows + `<div class="sb-meta" style="margin-top:4px">本周期 · 剩 ${remainTime} · ${resetTime} 重置</div>`;
   document.querySelector('#sbCardMinimax .sb-content').innerHTML = html;
   showCardState('sbCardMinimax', 'content', { dotClass: getProgressClass(maxUsed) });
+
+  const items = models.map((m) => ({
+    name: 'MiniMax-' + m.model_name,
+    percentage: 100 - (m.current_interval_remaining_percent ?? 100),
+  }));
+  checkThresholds(items);
 }
 
 // ========== DeepSeek ==========
@@ -343,6 +354,11 @@ function renderXiaomi(data) {
   `;
   document.querySelector('#sbCardXiaomi .sb-content').innerHTML = html;
   showCardState('sbCardXiaomi', 'content', { dotClass: cls });
+
+  const items = [];
+  if (monthItem) items.push({ name: 'Xiaomi-月度用量', percentage: monthPct });
+  if (planItem) items.push({ name: 'Xiaomi-套餐总量', percentage: planPct });
+  checkThresholds(items);
 }
 
 // ========== 设置抽屉 ==========
@@ -476,6 +492,49 @@ ALERT_THRESHOLD_KEYS.forEach((key, index) => {
     saveAlertThresholds(values);
   });
 });
+
+// ========== 预警阈值检查 ==========
+function getAlertThresholds(stored) {
+  return ALERT_THRESHOLD_KEYS.map(
+    (key, index) => stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index]
+  ).sort((a, b) => a - b);
+}
+
+async function checkThresholds(usageItems) {
+  const stored = await chrome.storage.local.get([
+    'alertEnabled',
+    ...ALERT_THRESHOLD_KEYS,
+    'notifiedAlerts',
+  ]);
+  if (!stored.alertEnabled) return;
+
+  const thresholds = getAlertThresholds(stored);
+  const notified = stored.notifiedAlerts || {};
+  let changed = false;
+
+  for (const item of usageItems) {
+    for (const threshold of thresholds) {
+      const key = `${item.name}-${threshold}`;
+      if (item.percentage >= threshold && !notified[key]) {
+        chrome.notifications.create(key, {
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+          title: 'CodingPlan 用量预警',
+          message: `${item.name} 使用量已达 ${item.percentage}%，超过 ${threshold}% 预警线`,
+        });
+        notified[key] = true;
+        changed = true;
+      } else if (item.percentage < threshold && notified[key]) {
+        delete notified[key];
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    chrome.storage.local.set({ notifiedAlerts: notified });
+  }
+}
 
 // ========== 并行刷新 ==========
 let isRefreshing = false;
