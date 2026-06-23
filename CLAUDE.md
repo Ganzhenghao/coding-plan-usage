@@ -35,6 +35,7 @@ CodingPlan 用量查询 — 一款 Chrome 浏览器扩展（Manifest V3），用
 - `glmCache` / `minimaxCache` — 上次查询结果缓存
 - `autoRefreshEnabled` / `autoRefreshInterval` — 自动刷新配置
 - `alertEnabled` / `alertThreshold1` / `alertThreshold2` / `alertThreshold3` / `notifiedAlerts` — 用量预警配置
+- `enabledPlans` — 各套餐启用开关(默认全开,关闭后 UI 隐藏且前后端不请求该平台)
 
 ### UI 状态机
 
