@@ -783,3 +783,20 @@ header h1 {
   justify-content: space-around;
   margin-top: 8px;
 }
+
+/* 全部套餐禁用的空状态 */
+.empty-plans {
+  text-align: center;
+  padding: 40px 20px;
+}
+.empty-plans .empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 6px;
+}
+.empty-plans .empty-hint {
+  font-size: 13px;
+  color: #999;
+  margin: 0 0 16px;
+}
