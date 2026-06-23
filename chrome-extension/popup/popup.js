@@ -994,6 +994,21 @@ async function refreshAll() {
 
 els.refreshBtn.addEventListener('click', refreshAll);
 
+// ========== 钉到侧边栏 ==========
+const pinToSidepanelBtn = document.getElementById('pinToSidepanelBtn');
+if (pinToSidepanelBtn) {
+  pinToSidepanelBtn.addEventListener('click', async () => {
+    try {
+      const win = await chrome.windows.getCurrent();
+      // 必须在用户手势上下文直接调用,不可绕道 service-worker
+      await chrome.sidePanel.open({ windowId: win.id });
+      window.close();
+    } catch (err) {
+      console.error('[CodingPlan] 打开侧边栏失败:', err);
+    }
+  });
+}
+
 // ========== 跳转详细用量 ==========
 els.glmGoUsageBtn.addEventListener('click', () => {
   chrome.tabs.create({
