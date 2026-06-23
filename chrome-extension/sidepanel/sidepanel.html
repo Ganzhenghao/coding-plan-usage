@@ -2,9 +2,114 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CodingPlan 侧边栏</title>
+  <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
-  <p>占位</p>
+  <div class="sb-app">
+    <!-- Header -->
+    <header class="sb-header">
+      <h1>CodingPlan 用量</h1>
+      <div class="sb-header-actions">
+        <button id="sbRefreshBtn" class="sb-header-btn" title="刷新">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+        <button id="sbSettingsBtn" class="sb-header-btn" title="设置">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.611 3.611 0 0112 15.6z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- 自动刷新行 -->
+    <div class="sb-auto-row">
+      <label class="sb-switch">
+        <input type="checkbox" id="sbAutoRefreshToggle">
+        <span class="sb-switch-slider"></span>
+        <span class="sb-switch-label">自动刷新</span>
+      </label>
+      <select id="sbAutoRefreshInterval" class="sb-select">
+        <option value="60">每 1 分钟</option>
+        <option value="300" selected>每 5 分钟</option>
+        <option value="600">每 10 分钟</option>
+        <option value="1800">每 30 分钟</option>
+      </select>
+    </div>
+
+    <!-- 套餐卡片区 -->
+    <div class="sb-cards">
+      <!-- GLM -->
+      <div class="sb-card" id="sbCardGLM">
+        <div class="sb-card-header">
+          <span class="sb-card-title">GLM</span>
+          <span class="sb-status-dot"></span>
+        </div>
+        <div class="sb-loading">
+          <div class="sb-skeleton-line w60"></div>
+          <div class="sb-skeleton-bar"></div>
+          <div class="sb-skeleton-line w40"></div>
+        </div>
+        <div class="sb-content" style="display:none"></div>
+        <div class="sb-error" style="display:none">
+          <div class="sb-error-msg">--</div>
+          <button class="sb-error-btn">重试</button>
+        </div>
+      </div>
+
+      <!-- MiniMax -->
+      <div class="sb-card" id="sbCardMinimax">
+        <div class="sb-card-header">
+          <span class="sb-card-title">MiniMax</span>
+          <span class="sb-status-dot"></span>
+        </div>
+        <div class="sb-loading">
+          <div class="sb-skeleton-line w60"></div>
+          <div class="sb-skeleton-bar"></div>
+          <div class="sb-skeleton-line w40"></div>
+        </div>
+        <div class="sb-content" style="display:none"></div>
+        <div class="sb-error" style="display:none">
+          <div class="sb-error-msg">--</div>
+          <button class="sb-error-btn">重试</button>
+        </div>
+      </div>
+
+      <!-- DeepSeek -->
+      <div class="sb-card" id="sbCardDeepseek">
+        <div class="sb-card-header">
+          <span class="sb-card-title">DeepSeek</span>
+          <span class="sb-status-dot"></span>
+        </div>
+        <div class="sb-loading">
+          <div class="sb-skeleton-line w60"></div>
+          <div class="sb-skeleton-bar"></div>
+          <div class="sb-skeleton-line w40"></div>
+        </div>
+        <div class="sb-content" style="display:none"></div>
+        <div class="sb-error" style="display:none">
+          <div class="sb-error-msg">--</div>
+          <button class="sb-error-btn">重试</button>
+        </div>
+      </div>
+
+      <!-- Xiaomi -->
+      <div class="sb-card" id="sbCardXiaomi">
+        <div class="sb-card-header">
+          <span class="sb-card-title">Xiaomi</span>
+          <span class="sb-status-dot"></span>
+        </div>
+        <div class="sb-loading">
+          <div class="sb-skeleton-line w60"></div>
+          <div class="sb-skeleton-bar"></div>
+          <div class="sb-skeleton-line w40"></div>
+        </div>
+        <div class="sb-content" style="display:none"></div>
+        <div class="sb-error" style="display:none">
+          <div class="sb-error-msg">--</div>
+          <button class="sb-error-btn">重试</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
