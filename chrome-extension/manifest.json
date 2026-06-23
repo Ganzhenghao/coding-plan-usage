@@ -8,7 +8,8 @@
     "storage",
     "notifications",
     "alarms",
-    "scripting"
+    "scripting",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://bigmodel.cn/*",
@@ -42,5 +43,8 @@
   },
   "background": {
     "service_worker": "background/service-worker.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
   }
 }
