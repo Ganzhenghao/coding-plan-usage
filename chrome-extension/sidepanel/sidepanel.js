@@ -2,6 +2,27 @@
 
 const API_TIMEOUT = 5000;
 
+// 套餐平台标识
+const PLAN_KEYS = ['glm', 'minimax', 'deepseek', 'xiaomi'];
+// 套餐开关 DOM id 映射(sidepanel 用 sbCardXxx 卡片 + sbPlanToggleXxx 开关)
+const PLAN_CARD_IDS = {
+  glm: 'sbCardGLM',
+  minimax: 'sbCardMinimax',
+  deepseek: 'sbCardDeepseek',
+  xiaomi: 'sbCardXiaomi',
+};
+const PLAN_TOGGLE_IDS = {
+  glm: 'sbPlanToggleGlm',
+  minimax: 'sbPlanToggleMinimax',
+  deepseek: 'sbPlanToggleDeepseek',
+  xiaomi: 'sbPlanToggleXiaomi',
+};
+
+// 判断某平台是否启用(undefined 视为启用,默认全开)
+function isPlanEnabled(enabledPlans, key) {
+  return enabledPlans?.[key] !== false;
+}
+
 // ========== 工具函数(从 popup.js 复制保持一致)==========
 function sendMessage(msg) {
   return new Promise((resolve) => {
@@ -360,6 +381,20 @@ function renderXiaomi(data) {
   checkThresholds(items);
 }
 
+// ========== 套餐启停:UI 显隐 ==========
+function applyEnabledPlans(enabledPlans) {
+  const enabledKeys = PLAN_KEYS.filter((k) => isPlanEnabled(enabledPlans, k));
+
+  PLAN_KEYS.forEach((k) => {
+    const enabled = isPlanEnabled(enabledPlans, k);
+    const card = document.getElementById(PLAN_CARD_IDS[k]);
+    if (card) card.style.display = enabled ? '' : 'none';
+  });
+
+  const empty = document.getElementById('sbEmptyPlans');
+  if (empty) empty.style.display = enabledKeys.length === 0 ? 'block' : 'none';
+}
+
 // ========== 设置抽屉 ==========
 const ALERT_THRESHOLD_KEYS = ['alertThreshold1', 'alertThreshold2', 'alertThreshold3'];
 const DEFAULT_ALERT_THRESHOLDS = [25, 50, 75];
@@ -390,11 +425,26 @@ function saveAlertThresholds(values) {
   chrome.storage.local.set(payload);
 }
 
+// ========== 套餐启停:开关事件 ==========
+function bindPlanToggle(key) {
+  const el = document.getElementById(PLAN_TOGGLE_IDS[key]);
+  el.addEventListener('change', async () => {
+    const { enabledPlans } = await chrome.storage.local.get('enabledPlans');
+    const next = {};
+    PLAN_KEYS.forEach((k) => {
+      next[k] = isPlanEnabled(enabledPlans, k);
+    });
+    next[key] = el.checked;
+    chrome.storage.local.set({ enabledPlans: next });
+  });
+}
+PLAN_KEYS.forEach(bindPlanToggle);
+
 function openSettings() {
   document.getElementById('sbSettingsOverlay').classList.add('visible');
   // 重新加载当前配置到表单
   chrome.storage.local.get(
-    ['minimaxApiKey', 'autoRefreshEnabled', 'autoRefreshInterval', 'alertEnabled', ...ALERT_THRESHOLD_KEYS],
+    ['minimaxApiKey', 'autoRefreshEnabled', 'autoRefreshInterval', 'alertEnabled', 'enabledPlans', ...ALERT_THRESHOLD_KEYS],
     (stored) => {
       document.getElementById('sbApiKeyInput').value = stored.minimaxApiKey || '';
       document.getElementById('sbSettingsAutoToggle').checked = !!stored.autoRefreshEnabled;
@@ -406,6 +456,10 @@ function openSettings() {
       ALERT_THRESHOLD_KEYS.forEach((key, index) => {
         const id = 'sb' + key.charAt(0).toUpperCase() + key.slice(1);
         document.getElementById(id).value = stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index];
+      });
+      // 回填套餐开关
+      PLAN_KEYS.forEach((key) => {
+        document.getElementById(PLAN_TOGGLE_IDS[key]).checked = isPlanEnabled(stored.enabledPlans, key);
       });
     }
   );
@@ -541,7 +595,17 @@ async function refreshAll() {
   if (isRefreshing) return;
   isRefreshing = true;
   try {
-    await Promise.all([fetchGLM(), fetchMinimax(), fetchDeepseek(), fetchXiaomi()]);
+    const { enabledPlans } = await chrome.storage.local.get('enabledPlans');
+    const fetchFnMap = {
+      glm: fetchGLM,
+      minimax: fetchMinimax,
+      deepseek: fetchDeepseek,
+      xiaomi: fetchXiaomi,
+    };
+    const tasks = PLAN_KEYS
+      .filter((k) => isPlanEnabled(enabledPlans, k))
+      .map((k) => fetchFnMap[k]());
+    await Promise.all(tasks);
   } finally {
     isRefreshing = false;
     chrome.storage.local.set({ lastUpdateTime: Date.now() });
@@ -613,6 +677,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
     sbAutoInterval.value = String(sec);
     if (sbAutoToggle.checked) startAutoRefresh(sec);
   }
+  if (changes.enabledPlans) {
+    applyEnabledPlans(changes.enabledPlans.newValue);
+  }
 });
 
 // 启动时从 storage 恢复 UI
@@ -628,13 +695,18 @@ async function restoreAutoRefreshUI() {
 // ========== 初始化:缓存优先 ==========
 async function init() {
   const stored = await chrome.storage.local.get([
+    'enabledPlans',
     'glmCache', 'glmBalanceCache', 'minimaxCache', 'deepseekCache', 'xiaomiCache',
   ]);
 
-  if (stored.glmCache) renderGLM(stored.glmCache, stored.glmBalanceCache || null);
-  if (stored.minimaxCache) renderMinimax(stored.minimaxCache);
-  if (stored.deepseekCache) renderDeepseek(stored.deepseekCache);
-  if (stored.xiaomiCache) renderXiaomi(stored.xiaomiCache.data);
+  // 先应用套餐显隐(决定哪些卡片可见)
+  applyEnabledPlans(stored.enabledPlans);
+
+  // 仅渲染启用平台的缓存,避免向隐藏卡片写入 DOM
+  if (stored.glmCache && isPlanEnabled(stored.enabledPlans, 'glm')) renderGLM(stored.glmCache, stored.glmBalanceCache || null);
+  if (stored.minimaxCache && isPlanEnabled(stored.enabledPlans, 'minimax')) renderMinimax(stored.minimaxCache);
+  if (stored.deepseekCache && isPlanEnabled(stored.enabledPlans, 'deepseek')) renderDeepseek(stored.deepseekCache);
+  if (stored.xiaomiCache && isPlanEnabled(stored.enabledPlans, 'xiaomi')) renderXiaomi(stored.xiaomiCache.data);
 
   await restoreAutoRefreshUI();
   refreshAll();

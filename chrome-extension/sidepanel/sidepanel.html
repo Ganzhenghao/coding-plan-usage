@@ -38,6 +38,12 @@
 
     <!-- 套餐卡片区 -->
     <div class="sb-cards">
+      <!-- 全部套餐禁用时的空状态 -->
+      <div id="sbEmptyPlans" class="sb-empty-plans" style="display:none">
+        <p class="sb-empty-title">所有套餐已禁用</p>
+        <p class="sb-empty-hint">请在设置中启用至少一个套餐</p>
+      </div>
+
       <!-- GLM -->
       <div class="sb-card" id="sbCardGLM">
         <div class="sb-card-header">
@@ -120,6 +126,38 @@
         <button id="sbSettingsCloseBtn" class="sb-settings-close">×</button>
       </div>
       <div class="sb-settings-body">
+
+        <section class="sb-settings-section">
+          <div class="sb-settings-label">套餐启用</div>
+          <div class="sb-plan-row">
+            <span class="sb-plan-name">GLM</span>
+            <label class="sb-switch">
+              <input type="checkbox" id="sbPlanToggleGlm" checked>
+              <span class="sb-switch-slider"></span>
+            </label>
+          </div>
+          <div class="sb-plan-row">
+            <span class="sb-plan-name">MiniMax</span>
+            <label class="sb-switch">
+              <input type="checkbox" id="sbPlanToggleMinimax" checked>
+              <span class="sb-switch-slider"></span>
+            </label>
+          </div>
+          <div class="sb-plan-row">
+            <span class="sb-plan-name">DeepSeek</span>
+            <label class="sb-switch">
+              <input type="checkbox" id="sbPlanToggleDeepseek" checked>
+              <span class="sb-switch-slider"></span>
+            </label>
+          </div>
+          <div class="sb-plan-row">
+            <span class="sb-plan-name">Xiaomi</span>
+            <label class="sb-switch">
+              <input type="checkbox" id="sbPlanToggleXiaomi" checked>
+              <span class="sb-switch-slider"></span>
+            </label>
+          </div>
+        </section>
 
         <section class="sb-settings-section">
           <div class="sb-settings-label">MiniMax API Key</div>

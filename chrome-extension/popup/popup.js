@@ -10,6 +10,21 @@ const TOOL_NAME_MAP = {
 const ALERT_THRESHOLD_KEYS = ['alertThreshold1', 'alertThreshold2', 'alertThreshold3'];
 const DEFAULT_ALERT_THRESHOLDS = [25, 50, 75];
 
+// 套餐平台标识(与 tab data-tab / card id 对应)
+const PLAN_KEYS = ['glm', 'minimax', 'deepseek', 'xiaomi'];
+// 套餐开关 DOM id 映射
+const PLAN_TOGGLE_IDS = {
+  glm: 'planToggleGlm',
+  minimax: 'planToggleMinimax',
+  deepseek: 'planToggleDeepseek',
+  xiaomi: 'planToggleXiaomi',
+};
+
+// 判断某平台是否启用(undefined 视为启用,默认全开)
+function isPlanEnabled(enabledPlans, key) {
+  return enabledPlans?.[key] !== false;
+}
+
 // ========== DOM 元素 ==========
 const $ = (sel) => document.querySelector(sel);
 
@@ -108,6 +123,14 @@ const els = {
   alertThreshold3: $('#alertThreshold3'),
   // 全局
   errorMsg: $('#errorMsg'),
+  // 空状态(全部套餐禁用)
+  emptyPlans: $('#emptyPlans'),
+  emptyOpenSettingsBtn: $('#emptyOpenSettingsBtn'),
+  // 套餐开关
+  planToggleGlm: $('#planToggleGlm'),
+  planToggleMinimax: $('#planToggleMinimax'),
+  planToggleDeepseek: $('#planToggleDeepseek'),
+  planToggleXiaomi: $('#planToggleXiaomi'),
 };
 
 // ========== 状态 ==========
@@ -238,6 +261,38 @@ function showXiaomiState(state) {
   els.xiaomiSkeleton.style.display = state === 'loading' ? 'flex' : 'none';
   els.xiaomiContent.style.display = state === 'content' ? 'flex' : 'none';
   els.xiaomiError.style.display = state === 'error' ? 'block' : 'none';
+}
+
+// ========== 套餐启停:UI 显隐 ==========
+const planElsMap = {
+  glm: { tab: document.querySelector('.tab[data-tab="glm"]'), panel: els.glmPanel },
+  minimax: { tab: document.querySelector('.tab[data-tab="minimax"]'), panel: els.minimaxPanel },
+  deepseek: { tab: document.querySelector('.tab[data-tab="deepseek"]'), panel: els.deepseekPanel },
+  xiaomi: { tab: document.querySelector('.tab[data-tab="xiaomi"]'), panel: els.xiaomiPanel },
+};
+
+// 根据 enabledPlans 显隐 Tab/Panel,处理当前选中态与空状态
+function applyEnabledPlans(enabledPlans) {
+  const enabledKeys = PLAN_KEYS.filter((k) => isPlanEnabled(enabledPlans, k));
+
+  PLAN_KEYS.forEach((k) => {
+    const enabled = isPlanEnabled(enabledPlans, k);
+    const { tab, panel } = planElsMap[k];
+    if (tab) tab.style.display = enabled ? '' : 'none';
+    panel.style.display = enabled ? '' : 'none';
+  });
+
+  // 全部禁用 → 显示空状态
+  if (enabledKeys.length === 0) {
+    els.emptyPlans.style.display = 'block';
+    return;
+  }
+  els.emptyPlans.style.display = 'none';
+
+  // 当前选中平台被禁用 → 跳到第一个启用项
+  if (!isPlanEnabled(enabledPlans, currentTab)) {
+    switchTab(enabledKeys[0]);
+  }
 }
 
 // ========== Tab 切换 ==========
@@ -773,12 +828,37 @@ async function checkThresholds(usageItems) {
   }
 }
 
+// ========== 套餐启停:开关事件 ==========
+function bindPlanToggle(key) {
+  const el = els[PLAN_TOGGLE_IDS[key]];
+  el.addEventListener('change', async () => {
+    const { enabledPlans } = await chrome.storage.local.get('enabledPlans');
+    const next = {};
+    PLAN_KEYS.forEach((k) => {
+      next[k] = isPlanEnabled(enabledPlans, k);
+    });
+    next[key] = el.checked;
+    chrome.storage.local.set({ enabledPlans: next });
+    // storage.onChanged 会触发 applyEnabledPlans
+  });
+}
+PLAN_KEYS.forEach(bindPlanToggle);
+
+// 空状态「打开设置」按钮
+els.emptyOpenSettingsBtn.addEventListener('click', openSettings);
+
 // ========== 设置面板 ==========
 function openSettings() {
   els.settingsOverlay.classList.add('visible');
   // 加载已有 API Key
   chrome.storage.local.get('minimaxApiKey', (stored) => {
     els.apiKeyInput.value = stored.minimaxApiKey || '';
+  });
+  // 回填套餐开关
+  chrome.storage.local.get('enabledPlans', (stored) => {
+    PLAN_KEYS.forEach((k) => {
+      els[PLAN_TOGGLE_IDS[k]].checked = isPlanEnabled(stored.enabledPlans, k);
+    });
   });
   setApiKeyHint('', '');
 }
@@ -985,7 +1065,17 @@ async function refreshAll() {
   isRefreshing = true;
   els.refreshBtn.classList.add('loading');
 
-  await Promise.all([fetchGLMData(), fetchMiniMaxData(), fetchDeepSeekData(), fetchXiaomiData()]);
+  const { enabledPlans } = await chrome.storage.local.get('enabledPlans');
+  const fetchFnMap = {
+    glm: fetchGLMData,
+    minimax: fetchMiniMaxData,
+    deepseek: fetchDeepSeekData,
+    xiaomi: fetchXiaomiData,
+  };
+  const tasks = PLAN_KEYS
+    .filter((k) => isPlanEnabled(enabledPlans, k))
+    .map((k) => fetchFnMap[k]());
+  await Promise.all(tasks);
 
   isRefreshing = false;
   els.refreshBtn.classList.remove('loading');
@@ -993,6 +1083,12 @@ async function refreshAll() {
 }
 
 els.refreshBtn.addEventListener('click', refreshAll);
+
+// ========== 套餐启停:storage 变更同步 ==========
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.enabledPlans) return;
+  applyEnabledPlans(changes.enabledPlans.newValue);
+});
 
 // ========== 钉到侧边栏 ==========
 const pinToSidepanelBtn = document.getElementById('pinToSidepanelBtn');
@@ -1032,6 +1128,7 @@ els.xiaomiGoUsageBtn.addEventListener('click', () => {
 async function init() {
   const stored = await chrome.storage.local.get([
     'lastTab',
+    'enabledPlans',
     'glmCache',
     'glmBalanceCache',
     'minimaxCache',
@@ -1043,24 +1140,26 @@ async function init() {
     ...ALERT_THRESHOLD_KEYS,
   ]);
 
-  if (stored.lastTab) {
+  // 根据套餐启用状态处理初始 Tab 与显隐
+  applyEnabledPlans(stored.enabledPlans);
+  if (stored.lastTab && isPlanEnabled(stored.enabledPlans, stored.lastTab)) {
     switchTab(stored.lastTab);
   }
 
-  // 先用缓存渲染
-  if (stored.glmCache) {
+  // 先用缓存渲染(仅启用平台,避免向隐藏 panel 写入并触发已禁用平台的预警)
+  if (stored.glmCache && isPlanEnabled(stored.enabledPlans, 'glm')) {
     renderGLMData(stored.glmCache);
   }
-  if (stored.glmBalanceCache) {
+  if (stored.glmBalanceCache && isPlanEnabled(stored.enabledPlans, 'glm')) {
     renderGLMBalance(stored.glmBalanceCache);
   }
-  if (stored.minimaxCache) {
+  if (stored.minimaxCache && isPlanEnabled(stored.enabledPlans, 'minimax')) {
     renderMiniMaxData(stored.minimaxCache);
   }
-  if (stored.deepseekCache) {
+  if (stored.deepseekCache && isPlanEnabled(stored.enabledPlans, 'deepseek')) {
     renderDeepSeekData(stored.deepseekCache);
   }
-  if (stored.xiaomiCache) {
+  if (stored.xiaomiCache && isPlanEnabled(stored.enabledPlans, 'xiaomi')) {
     renderXiaomiData(stored.xiaomiCache.data);
   }
 
