@@ -111,18 +111,17 @@ async function fetchGLM() {
     return;
   }
 
-  // 用量数据已到位,先用 null 余额渲染一次,再异步取余额
   const usage = result.data.data;
   await chrome.storage.local.set({ glmCache: usage, glmCacheTime: Date.now() });
+  renderGLM(usage, null);
 
-  const balanceResult = await sendMessage({ type: 'fetchGLMBalance', token: tokenResult.token });
-  let balance = null;
-  if (balanceResult?.data?.code === 200 && balanceResult.data.data) {
-    balance = balanceResult.data.data;
-    await chrome.storage.local.set({ glmBalanceCache: balance, glmBalanceCacheTime: Date.now() });
-  }
-
-  renderGLM(usage, balance);
+  sendMessage({ type: 'fetchGLMBalance', token: tokenResult.token }).then((balanceResult) => {
+    if (balanceResult?.data?.code === 200 && balanceResult.data.data) {
+      const balance = balanceResult.data.data;
+      chrome.storage.local.set({ glmBalanceCache: balance, glmBalanceCacheTime: Date.now() });
+      renderGLM(usage, balance);
+    }
+  });
 }
 
 function renderGLM(usage, balance) {
@@ -317,7 +316,7 @@ async function fetchXiaomi() {
     showCardState('sbCardXiaomi', 'error', {
       errorMsg: '请先登录小米平台',
       errorBtnText: '前往登录',
-      errorBtnAction: () => window.open(data.loginUrl),
+      errorBtnAction: () => chrome.tabs.create({ url: data.loginUrl }),
     });
     return;
   }
@@ -541,9 +540,12 @@ let isRefreshing = false;
 async function refreshAll() {
   if (isRefreshing) return;
   isRefreshing = true;
-  await Promise.all([fetchGLM(), fetchMinimax(), fetchDeepseek(), fetchXiaomi()]);
-  isRefreshing = false;
-  chrome.storage.local.set({ lastUpdateTime: Date.now() });
+  try {
+    await Promise.all([fetchGLM(), fetchMinimax(), fetchDeepseek(), fetchXiaomi()]);
+  } finally {
+    isRefreshing = false;
+    chrome.storage.local.set({ lastUpdateTime: Date.now() });
+  }
 }
 
 // ========== Header 控件与自动刷新 ==========
@@ -566,8 +568,11 @@ function stopAutoRefresh() {
 const sbRefreshBtn = document.getElementById('sbRefreshBtn');
 sbRefreshBtn.addEventListener('click', async () => {
   sbRefreshBtn.classList.add('loading');
-  await refreshAll();
-  sbRefreshBtn.classList.remove('loading');
+  try {
+    await refreshAll();
+  } finally {
+    sbRefreshBtn.classList.remove('loading');
+  }
 });
 
 // 自动刷新开关
