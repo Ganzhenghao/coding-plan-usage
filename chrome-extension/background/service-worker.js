@@ -6,6 +6,14 @@ const ALARM_NAME = 'checkUsageAlerts';
 const SHORT_INTERVAL_ALARM_NAME = 'checkUsageAlertsShort';
 const ALERT_THRESHOLD_KEYS = ['alertThreshold1', 'alertThreshold2', 'alertThreshold3'];
 const DEFAULT_ALERT_THRESHOLDS = [25, 50, 75];
+
+// 套餐平台标识
+const PLAN_KEYS = ['glm', 'minimax', 'deepseek', 'xiaomi'];
+
+// 判断某平台是否启用(undefined 视为启用,默认全开)
+function isPlanEnabled(enabledPlans, key) {
+  return enabledPlans?.[key] !== false;
+}
 let shortIntervalTimer = null;
 
 function getAlertThresholds(stored) {
@@ -355,92 +363,101 @@ async function checkUsageInBackground() {
   if (!stored.alertEnabled) return;
   
   const usageItems = [];
-  
+  const { enabledPlans } = await chrome.storage.local.get('enabledPlans');
+
   // 检查 GLM 用量
-  try {
-    const tokenResult = await handleGetGLMToken();
-    if (tokenResult.token) {
-      const glmResult = await handleFetchGLMUsage({ token: tokenResult.token });
-      if (glmResult.data?.data?.limits) {
-        const limits = glmResult.data.data.limits;
-        
-        const tokenLimit = limits.find((l) => l.type === 'TOKENS_LIMIT');
-        if (tokenLimit) {
-          usageItems.push({ name: 'GLM-Tokens', percentage: tokenLimit.percentage || 0 });
+  if (isPlanEnabled(enabledPlans, 'glm')) {
+    try {
+      const tokenResult = await handleGetGLMToken();
+      if (tokenResult.token) {
+        const glmResult = await handleFetchGLMUsage({ token: tokenResult.token });
+        if (glmResult.data?.data?.limits) {
+          const limits = glmResult.data.data.limits;
+
+          const tokenLimit = limits.find((l) => l.type === 'TOKENS_LIMIT');
+          if (tokenLimit) {
+            usageItems.push({ name: 'GLM-Tokens', percentage: tokenLimit.percentage || 0 });
+          }
+
+          const toolLimit = limits.find((l) => l.type === 'TIME_LIMIT');
+          if (toolLimit) {
+            usageItems.push({ name: 'GLM-MCP工具', percentage: toolLimit.percentage || 0 });
+          }
+
+          // 更新缓存
+          await chrome.storage.local.set({ glmCache: glmResult.data.data, glmCacheTime: Date.now() });
         }
-        
-        const toolLimit = limits.find((l) => l.type === 'TIME_LIMIT');
-        if (toolLimit) {
-          usageItems.push({ name: 'GLM-MCP工具', percentage: toolLimit.percentage || 0 });
-        }
-        
-        // 更新缓存
-        await chrome.storage.local.set({ glmCache: glmResult.data.data, glmCacheTime: Date.now() });
       }
+    } catch (err) {
+      console.error('[CodingPlan] GLM 后台检查失败:', err);
     }
-  } catch (err) {
-    console.error('[CodingPlan] GLM 后台检查失败:', err);
   }
-  
+
   // 检查 MiniMax 用量
-  try {
-    const minimaxStored = await chrome.storage.local.get('minimaxApiKey');
-    if (minimaxStored.minimaxApiKey) {
-      const minimaxResult = await handleFetchMiniMaxUsage({ apiKey: minimaxStored.minimaxApiKey });
-      if (minimaxResult.data?.model_remains) {
-        const models = minimaxResult.data.model_remains;
-        
-        models.forEach((model) => {
-          const remaining = model.current_interval_remaining_percent ?? 100;
-          const usedPct = 100 - remaining;
-          usageItems.push({ name: 'MiniMax-' + model.model_name, percentage: usedPct });
-        });
-        
-        // 更新缓存
-        await chrome.storage.local.set({ minimaxCache: minimaxResult.data, minimaxCacheTime: Date.now() });
+  if (isPlanEnabled(enabledPlans, 'minimax')) {
+    try {
+      const minimaxStored = await chrome.storage.local.get('minimaxApiKey');
+      if (minimaxStored.minimaxApiKey) {
+        const minimaxResult = await handleFetchMiniMaxUsage({ apiKey: minimaxStored.minimaxApiKey });
+        if (minimaxResult.data?.model_remains) {
+          const models = minimaxResult.data.model_remains;
+
+          models.forEach((model) => {
+            const remaining = model.current_interval_remaining_percent ?? 100;
+            const usedPct = 100 - remaining;
+            usageItems.push({ name: 'MiniMax-' + model.model_name, percentage: usedPct });
+          });
+
+          // 更新缓存
+          await chrome.storage.local.set({ minimaxCache: minimaxResult.data, minimaxCacheTime: Date.now() });
+        }
       }
+    } catch (err) {
+      console.error('[CodingPlan] MiniMax 后台检查失败:', err);
     }
-  } catch (err) {
-    console.error('[CodingPlan] MiniMax 后台检查失败:', err);
   }
 
   // DeepSeek 不参与用量预警，仅更新缓存
-  try {
-    const deepseekStored = await chrome.storage.local.get('deepseekToken');
-    if (deepseekStored.deepseekToken) {
-      const deepseekResult = await handleFetchDeepSeekUsage({ token: deepseekStored.deepseekToken });
-      if (deepseekResult.data?.code === 0 && deepseekResult.data?.data?.biz_data) {
-        // 更新缓存
-        await chrome.storage.local.set({ deepseekCache: deepseekResult.data, deepseekCacheTime: Date.now() });
+  if (isPlanEnabled(enabledPlans, 'deepseek')) {
+    try {
+      const deepseekStored = await chrome.storage.local.get('deepseekToken');
+      if (deepseekStored.deepseekToken) {
+        const deepseekResult = await handleFetchDeepSeekUsage({ token: deepseekStored.deepseekToken });
+        if (deepseekResult.data?.code === 0 && deepseekResult.data?.data?.biz_data) {
+          // 更新缓存
+          await chrome.storage.local.set({ deepseekCache: deepseekResult.data, deepseekCacheTime: Date.now() });
+        }
       }
+    } catch (err) {
+      console.error('[CodingPlan] DeepSeek 后台检查失败:', err);
     }
-  } catch (err) {
-    console.error('[CodingPlan] DeepSeek 后台检查失败:', err);
   }
 
   // 检查 Xiaomi 用量
-  try {
-    const xiaomiCookieResult = await handleGetXiaomiCookies();
-    const xiaomiResult = await handleFetchXiaomiUsage({ cookies: xiaomiCookieResult.cookies || '' });
-    if (xiaomiResult.data?.code === 0 && xiaomiResult.data?.data) {
-      const xiaomiData = xiaomiResult.data.data;
-      // 月度用量（percent 是小数格式如 0.0444，转百分比）
-      const monthItem = xiaomiData.monthUsage?.items?.[0];
-      if (monthItem) {
-        const pct = (parseFloat(monthItem.percent) || 0) * 100;
-        usageItems.push({ name: 'Xiaomi-月度用量', percentage: pct });
+  if (isPlanEnabled(enabledPlans, 'xiaomi')) {
+    try {
+      const xiaomiCookieResult = await handleGetXiaomiCookies();
+      const xiaomiResult = await handleFetchXiaomiUsage({ cookies: xiaomiCookieResult.cookies || '' });
+      if (xiaomiResult.data?.code === 0 && xiaomiResult.data?.data) {
+        const xiaomiData = xiaomiResult.data.data;
+        // 月度用量（percent 是小数格式如 0.0444，转百分比）
+        const monthItem = xiaomiData.monthUsage?.items?.[0];
+        if (monthItem) {
+          const pct = (parseFloat(monthItem.percent) || 0) * 100;
+          usageItems.push({ name: 'Xiaomi-月度用量', percentage: pct });
+        }
+        // 套餐总量（percent 是小数格式如 0.04，转百分比）
+        const planItem = xiaomiData.usage?.items?.find((i) => i.name === 'plan_total_token');
+        if (planItem) {
+          const pct = (parseFloat(planItem.percent) || 0) * 100;
+          usageItems.push({ name: 'Xiaomi-套餐总量', percentage: pct });
+        }
+        // 更新缓存
+        await chrome.storage.local.set({ xiaomiCache: xiaomiResult.data, xiaomiCacheTime: Date.now() });
       }
-      // 套餐总量（percent 是小数格式如 0.04，转百分比）
-      const planItem = xiaomiData.usage?.items?.find((i) => i.name === 'plan_total_token');
-      if (planItem) {
-        const pct = (parseFloat(planItem.percent) || 0) * 100;
-        usageItems.push({ name: 'Xiaomi-套餐总量', percentage: pct });
-      }
-      // 更新缓存
-      await chrome.storage.local.set({ xiaomiCache: xiaomiResult.data, xiaomiCacheTime: Date.now() });
+    } catch (err) {
+      console.error('[CodingPlan] Xiaomi 后台检查失败:', err);
     }
-  } catch (err) {
-    console.error('[CodingPlan] Xiaomi 后台检查失败:', err);
   }
 
   // 检查阈值并发送通知
