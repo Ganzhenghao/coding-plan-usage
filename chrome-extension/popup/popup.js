@@ -1146,20 +1146,20 @@ async function init() {
     switchTab(stored.lastTab);
   }
 
-  // 先用缓存渲染
-  if (stored.glmCache) {
+  // 先用缓存渲染(仅启用平台,避免向隐藏 panel 写入并触发已禁用平台的预警)
+  if (stored.glmCache && isPlanEnabled(stored.enabledPlans, 'glm')) {
     renderGLMData(stored.glmCache);
   }
-  if (stored.glmBalanceCache) {
+  if (stored.glmBalanceCache && isPlanEnabled(stored.enabledPlans, 'glm')) {
     renderGLMBalance(stored.glmBalanceCache);
   }
-  if (stored.minimaxCache) {
+  if (stored.minimaxCache && isPlanEnabled(stored.enabledPlans, 'minimax')) {
     renderMiniMaxData(stored.minimaxCache);
   }
-  if (stored.deepseekCache) {
+  if (stored.deepseekCache && isPlanEnabled(stored.enabledPlans, 'deepseek')) {
     renderDeepSeekData(stored.deepseekCache);
   }
-  if (stored.xiaomiCache) {
+  if (stored.xiaomiCache && isPlanEnabled(stored.enabledPlans, 'xiaomi')) {
     renderXiaomiData(stored.xiaomiCache.data);
   }
 

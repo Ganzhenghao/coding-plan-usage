@@ -702,10 +702,11 @@ async function init() {
   // 先应用套餐显隐(决定哪些卡片可见)
   applyEnabledPlans(stored.enabledPlans);
 
-  if (stored.glmCache) renderGLM(stored.glmCache, stored.glmBalanceCache || null);
-  if (stored.minimaxCache) renderMinimax(stored.minimaxCache);
-  if (stored.deepseekCache) renderDeepseek(stored.deepseekCache);
-  if (stored.xiaomiCache) renderXiaomi(stored.xiaomiCache.data);
+  // 仅渲染启用平台的缓存,避免向隐藏卡片写入 DOM
+  if (stored.glmCache && isPlanEnabled(stored.enabledPlans, 'glm')) renderGLM(stored.glmCache, stored.glmBalanceCache || null);
+  if (stored.minimaxCache && isPlanEnabled(stored.enabledPlans, 'minimax')) renderMinimax(stored.minimaxCache);
+  if (stored.deepseekCache && isPlanEnabled(stored.enabledPlans, 'deepseek')) renderDeepseek(stored.deepseekCache);
+  if (stored.xiaomiCache && isPlanEnabled(stored.enabledPlans, 'xiaomi')) renderXiaomi(stored.xiaomiCache.data);
 
   await restoreAutoRefreshUI();
   refreshAll();
