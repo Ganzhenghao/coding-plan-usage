@@ -452,3 +452,32 @@ body {
   padding: 3px 6px;
   font-size: 12px;
 }
+
+/* 套餐开关行 */
+.sb-plan-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+.sb-plan-name {
+  font-size: 12px;
+  color: #333;
+}
+
+/* 全部套餐禁用的空状态 */
+.sb-empty-plans {
+  text-align: center;
+  padding: 40px 16px;
+}
+.sb-empty-plans .sb-empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 6px;
+}
+.sb-empty-plans .sb-empty-hint {
+  font-size: 12px;
+  color: #999;
+  margin: 0;
+}
