@@ -41,6 +41,13 @@
       <button class="tab" data-tab="xiaomi">Xiaomi</button>
     </div>
 
+    <!-- 全部套餐禁用时的空状态 -->
+    <div id="emptyPlans" class="empty-plans" style="display:none">
+      <p class="empty-title">所有套餐已禁用</p>
+      <p class="empty-hint">请在设置中启用至少一个套餐</p>
+      <button id="emptyOpenSettingsBtn" class="primary-btn">打开设置</button>
+    </div>
+
     <!-- GLM 面板 -->
     <div id="glmPanel" class="panel active">
       <div id="glmLogin" class="login-prompt" style="display:none">
@@ -323,6 +330,38 @@
         </button>
       </div>
       <div class="settings-body">
+        <!-- 套餐启用 -->
+        <div class="settings-group">
+          <div class="settings-label">套餐启用</div>
+          <div class="settings-row">
+            <span class="settings-desc">GLM</span>
+            <label class="toggle">
+              <input type="checkbox" id="planToggleGlm" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <span class="settings-desc">MiniMax</span>
+            <label class="toggle">
+              <input type="checkbox" id="planToggleMinimax" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <span class="settings-desc">DeepSeek</span>
+            <label class="toggle">
+              <input type="checkbox" id="planToggleDeepseek" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <span class="settings-desc">Xiaomi</span>
+            <label class="toggle">
+              <input type="checkbox" id="planToggleXiaomi" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
         <!-- MiniMax API Key -->
         <div class="settings-group">
           <div class="settings-label">Minimax API Key</div>
