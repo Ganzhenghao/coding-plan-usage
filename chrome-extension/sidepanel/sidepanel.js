@@ -361,6 +361,80 @@ async function refreshAll() {
   chrome.storage.local.set({ lastUpdateTime: Date.now() });
 }
 
+// ========== Header 控件与自动刷新 ==========
+let autoRefreshTimer = null;
+
+function startAutoRefresh(seconds) {
+  stopAutoRefresh();
+  if (!seconds || seconds <= 0) return;
+  autoRefreshTimer = setInterval(() => refreshAll(), seconds * 1000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+// 手动刷新按钮
+const sbRefreshBtn = document.getElementById('sbRefreshBtn');
+sbRefreshBtn.addEventListener('click', async () => {
+  sbRefreshBtn.classList.add('loading');
+  await refreshAll();
+  sbRefreshBtn.classList.remove('loading');
+});
+
+// 自动刷新开关
+const sbAutoToggle = document.getElementById('sbAutoRefreshToggle');
+const sbAutoInterval = document.getElementById('sbAutoRefreshInterval');
+
+sbAutoToggle.addEventListener('change', () => {
+  const enabled = sbAutoToggle.checked;
+  chrome.storage.local.set({ autoRefreshEnabled: enabled });
+  if (enabled) {
+    const sec = parseInt(sbAutoInterval.value, 10) || 300;
+    startAutoRefresh(sec);
+  } else {
+    stopAutoRefresh();
+  }
+});
+
+sbAutoInterval.addEventListener('change', () => {
+  const sec = parseInt(sbAutoInterval.value, 10) || 300;
+  chrome.storage.local.set({ autoRefreshInterval: sec });
+  if (sbAutoToggle.checked) startAutoRefresh(sec);
+});
+
+// 监听 storage 变更(popup 改了配置时同步)
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  if (changes.autoRefreshEnabled) {
+    const enabled = !!changes.autoRefreshEnabled.newValue;
+    sbAutoToggle.checked = enabled;
+    if (enabled) {
+      startAutoRefresh(parseInt(sbAutoInterval.value, 10) || 300);
+    } else {
+      stopAutoRefresh();
+    }
+  }
+  if (changes.autoRefreshInterval) {
+    const sec = parseInt(changes.autoRefreshInterval.newValue, 10) || 300;
+    sbAutoInterval.value = String(sec);
+    if (sbAutoToggle.checked) startAutoRefresh(sec);
+  }
+});
+
+// 启动时从 storage 恢复 UI
+async function restoreAutoRefreshUI() {
+  const stored = await chrome.storage.local.get(['autoRefreshEnabled', 'autoRefreshInterval']);
+  if (stored.autoRefreshInterval) sbAutoInterval.value = String(stored.autoRefreshInterval);
+  if (stored.autoRefreshEnabled) {
+    sbAutoToggle.checked = true;
+    startAutoRefresh(parseInt(sbAutoInterval.value, 10) || 300);
+  }
+}
+
 // ========== 初始化:缓存优先 ==========
 async function init() {
   const stored = await chrome.storage.local.get([
@@ -372,6 +446,7 @@ async function init() {
   if (stored.deepseekCache) renderDeepseek(stored.deepseekCache);
   if (stored.xiaomiCache) renderXiaomi(stored.xiaomiCache.data);
 
+  await restoreAutoRefreshUI();
   refreshAll();
 }
 
