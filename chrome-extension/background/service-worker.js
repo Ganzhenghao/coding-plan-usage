@@ -492,11 +492,22 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
+// 初始化侧边栏 behavior:点击工具栏图标仍弹 popup,侧边栏只由按钮触发
+async function initSidePanelBehavior() {
+  try {
+    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+  } catch (err) {
+    console.error('[CodingPlan] setPanelBehavior 失败:', err);
+  }
+}
+
 // 扩展安装或启动时初始化定时任务
 chrome.runtime.onInstalled.addListener(() => {
   initAlarm();
+  initSidePanelBehavior();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   initAlarm();
+  initSidePanelBehavior();
 });
