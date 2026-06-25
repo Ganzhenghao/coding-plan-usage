@@ -539,12 +539,3 @@ body {
 .sb-card.is-expired .sb-quota-pct.danger {
   color: #999;
 }
-
-/* 卡片右上角的跳转图标 */
-.sb-card-link {
-  margin-left: 4px;
-  color: #999;
-  font-size: 12px;
-  text-decoration: none;
-}
-.sb-card-link:hover { color: #4a90e2; }
