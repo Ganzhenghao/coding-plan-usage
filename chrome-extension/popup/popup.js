@@ -11,13 +11,14 @@ const ALERT_THRESHOLD_KEYS = ['alertThreshold1', 'alertThreshold2', 'alertThresh
 const DEFAULT_ALERT_THRESHOLDS = [25, 50, 75];
 
 // 套餐平台标识(与 tab data-tab / card id 对应)
-const PLAN_KEYS = ['glm', 'minimax', 'deepseek', 'xiaomi'];
+const PLAN_KEYS = ['glm', 'minimax', 'deepseek', 'xiaomi', 'volcengine'];
 // 套餐开关 DOM id 映射
 const PLAN_TOGGLE_IDS = {
   glm: 'planToggleGlm',
   minimax: 'planToggleMinimax',
   deepseek: 'planToggleDeepseek',
   xiaomi: 'planToggleXiaomi',
+  volcengine: 'planToggleVolcengine',
 };
 
 // 判断某平台是否启用(undefined 视为启用,默认全开)
@@ -100,6 +101,17 @@ const els = {
   xiaomiCompensationProgress: $('#xiaomiCompensationProgress'),
   xiaomiCompensationUsage: $('#xiaomiCompensationUsage'),
   xiaomiGoUsageBtn: $('#xiaomiGoUsageBtn'),
+  // Volcengine
+  volcenginePanel: $('#volcenginePanel'),
+  volcengineLogin: $('#volcengineLogin'),
+  volcengineLoginBtn: $('#volcengineLoginBtn'),
+  volcengineSkeleton: $('#volcengineSkeleton'),
+  volcengineContent: $('#volcengineContent'),
+  volcengineError: $('#volcengineError'),
+  volcengineErrorMsg: $('#volcengineErrorMsg'),
+  volcengineErrorBtn: $('#volcengineErrorBtn'),
+  volcengineQuotas: $('#volcengineQuotas'),
+  volcengineGoUsageBtn: $('#volcengineGoUsageBtn'),
   // GLM
   glmGoUsageBtn: $('#glmGoUsageBtn'),
   // Header
@@ -131,6 +143,7 @@ const els = {
   planToggleMinimax: $('#planToggleMinimax'),
   planToggleDeepseek: $('#planToggleDeepseek'),
   planToggleXiaomi: $('#planToggleXiaomi'),
+  planToggleVolcengine: $('#planToggleVolcengine'),
 };
 
 // ========== 状态 ==========
@@ -198,6 +211,30 @@ function formatXiaomiToken(num) {
   return n.toLocaleString();
 }
 
+// 把 unix 秒级时间戳格式化为「Nd / Nh Nm / Nm / <1分钟 / 已重置」
+function formatResetCountdown(resetTs) {
+  if (!resetTs) return '--';
+  const ms = resetTs * 1000 - Date.now();
+  if (ms <= 0) return '已重置';
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return '<1分钟';
+  const hours = Math.floor(minutes / 60);
+  if (hours < 1) return `${minutes}分钟后重置`;
+  const days = Math.floor(hours / 24);
+  if (days < 1) {
+    const m = minutes % 60;
+    return m > 0 ? `${hours}小时${m}分后重置` : `${hours}小时后重置`;
+  }
+  const h = hours % 24;
+  return h > 0 ? `${days}天${h}小时后重置` : `${days}天后重置`;
+}
+
+const VOLCENGINE_LEVEL_LABELS = {
+  session: '当前会话',
+  weekly: '近 1 周',
+  monthly: '近 1 月',
+};
+
 function getAlertThresholds(stored) {
   return ALERT_THRESHOLD_KEYS.map(
     (key, index) => stored[key] ?? DEFAULT_ALERT_THRESHOLDS[index]
@@ -263,12 +300,21 @@ function showXiaomiState(state) {
   els.xiaomiError.style.display = state === 'error' ? 'block' : 'none';
 }
 
+// ========== Volcengine 状态切换 ==========
+function showVolcengineState(state) {
+  els.volcengineLogin.style.display = state === 'login' ? 'block' : 'none';
+  els.volcengineSkeleton.style.display = state === 'loading' ? 'flex' : 'none';
+  els.volcengineContent.style.display = state === 'content' ? 'flex' : 'none';
+  els.volcengineError.style.display = state === 'error' ? 'block' : 'none';
+}
+
 // ========== 套餐启停:UI 显隐 ==========
 const planElsMap = {
   glm: { tab: document.querySelector('.tab[data-tab="glm"]'), panel: els.glmPanel },
   minimax: { tab: document.querySelector('.tab[data-tab="minimax"]'), panel: els.minimaxPanel },
   deepseek: { tab: document.querySelector('.tab[data-tab="deepseek"]'), panel: els.deepseekPanel },
   xiaomi: { tab: document.querySelector('.tab[data-tab="xiaomi"]'), panel: els.xiaomiPanel },
+  volcengine: { tab: document.querySelector('.tab[data-tab="volcengine"]'), panel: els.volcenginePanel },
 };
 
 // 根据 enabledPlans 显隐 Tab/Panel,处理当前选中态与空状态
@@ -301,6 +347,7 @@ const tabFetchMap = {
   minimax: fetchMiniMaxData,
   deepseek: fetchDeepSeekData,
   xiaomi: fetchXiaomiData,
+  volcengine: fetchVolcengineData,
 };
 
 function switchTab(tab) {
@@ -310,6 +357,7 @@ function switchTab(tab) {
   els.minimaxPanel.classList.toggle('active', tab === 'minimax');
   els.deepseekPanel.classList.toggle('active', tab === 'deepseek');
   els.xiaomiPanel.classList.toggle('active', tab === 'xiaomi');
+  els.volcenginePanel.classList.toggle('active', tab === 'volcengine');
   chrome.storage.local.set({ lastTab: tab });
   tabFetchMap[tab]();
 }
@@ -678,6 +726,89 @@ els.deepseekGoUsageBtn.addEventListener('click', () => {
   });
 });
 
+// ========== Volcengine 数据获取 ==========
+async function fetchVolcengineData() {
+  showVolcengineState('loading');
+
+  const result = await sendMessage({ type: 'fetchVolcengineUsage' });
+
+  if (!result || result.error === 'LOGIN_REQUIRED') {
+    showVolcengineState('login');
+    return;
+  }
+  if (result.error === 'TIMEOUT') {
+    showVolcengineState('error');
+    els.volcengineErrorMsg.textContent = '请求超时，请检查网络后重试';
+    els.volcengineErrorBtn.textContent = '重试';
+    els.volcengineErrorBtn.onclick = fetchVolcengineData;
+    return;
+  }
+  if (result.error || !result.data) {
+    showVolcengineState('error');
+    els.volcengineErrorMsg.textContent = '获取 Volcengine 用量失败';
+    els.volcengineErrorBtn.textContent = '重试';
+    els.volcengineErrorBtn.onclick = fetchVolcengineData;
+    return;
+  }
+
+  renderVolcengineData(result.data);
+  chrome.storage.local.set({ volcengineCache: result.data, volcengineCacheTime: Date.now() });
+}
+
+function renderVolcengineData(data) {
+  showVolcengineState('content');
+  const quotas = Array.isArray(data.quotas) ? data.quotas : [];
+  const order = ['session', 'weekly', 'monthly'];
+
+  const card = els.volcengineContent.querySelector('.volcengine-card');
+  if (card) card.classList.toggle('is-expired', data.status === 'Expired');
+
+  const rows = order.map((level) => {
+    const q = quotas.find((x) => x.level === level);
+    if (!q) return '';
+    const pct = Math.max(0, Math.min(100, q.percent || 0));
+    const cls = getProgressClass(pct);
+    const label = VOLCENGINE_LEVEL_LABELS[level] || level;
+    const reset = formatResetCountdown(q.resetAt);
+    return `
+      <div class="volc-quota-row">
+        <div class="volc-quota-head">
+          <span class="volc-quota-label">${label}</span>
+          <span class="volc-quota-pct${cls ? ' ' + cls : ''}">${pct.toFixed(2)}%</span>
+        </div>
+        <div class="volc-quota-bar"><div class="volc-quota-fill${cls ? ' ' + cls : ''}" data-target="${pct}" style="width:0%"></div></div>
+        <div class="volc-quota-reset">${reset}</div>
+      </div>
+    `;
+  }).join('');
+
+  els.volcengineQuotas.innerHTML = rows || '<p style="text-align:center;color:#999;padding:20px;">暂无配额数据</p>';
+
+  requestAnimationFrame(() => {
+    els.volcengineQuotas.querySelectorAll('.volc-quota-fill').forEach((fill) => {
+      fill.style.width = fill.dataset.target + '%';
+    });
+  });
+
+  // 仅 session 档参与预警
+  const session = quotas.find((q) => q.level === 'session');
+  if (session) {
+    checkThresholds([{ name: 'Volcengine-会话', percentage: Math.round(session.percent || 0) }]);
+  }
+}
+
+els.volcengineLoginBtn.addEventListener('click', () => {
+  chrome.tabs.create({
+    url: 'https://console.volcengine.com/ark/region:cn-beijing/subscription/coding-plan',
+  });
+});
+
+els.volcengineGoUsageBtn.addEventListener('click', () => {
+  chrome.tabs.create({
+    url: 'https://console.volcengine.com/ark/region:cn-beijing/subscription/coding-plan',
+  });
+});
+
 // ========== Xiaomi 数据获取 ==========
 async function fetchXiaomiData() {
   showXiaomiState('loading');
@@ -887,6 +1018,10 @@ els.goUsageBtn.addEventListener('click', () => {
     chrome.tabs.create({
       url: 'https://platform.xiaomimimo.com/console/plan-manage',
     });
+  } else if (currentTab === 'volcengine') {
+    chrome.tabs.create({
+      url: 'https://console.volcengine.com/ark/region:cn-beijing/subscription/coding-plan',
+    });
   }
 });
 els.settingsCloseBtn.addEventListener('click', closeSettings);
@@ -1071,6 +1206,7 @@ async function refreshAll() {
     minimax: fetchMiniMaxData,
     deepseek: fetchDeepSeekData,
     xiaomi: fetchXiaomiData,
+    volcengine: fetchVolcengineData,
   };
   const tasks = PLAN_KEYS
     .filter((k) => isPlanEnabled(enabledPlans, k))
@@ -1134,6 +1270,7 @@ async function init() {
     'minimaxCache',
     'deepseekCache',
     'xiaomiCache',
+    'volcengineCache',
     'autoRefreshEnabled',
     'autoRefreshInterval',
     'alertEnabled',
@@ -1161,6 +1298,9 @@ async function init() {
   }
   if (stored.xiaomiCache && isPlanEnabled(stored.enabledPlans, 'xiaomi')) {
     renderXiaomiData(stored.xiaomiCache.data);
+  }
+  if (stored.volcengineCache && isPlanEnabled(stored.enabledPlans, 'volcengine')) {
+    renderVolcengineData(stored.volcengineCache);
   }
 
   // 恢复自动刷新设置

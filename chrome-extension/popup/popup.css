@@ -800,3 +800,50 @@ header h1 {
   color: #999;
   margin: 0 0 16px;
 }
+
+/* ========== Volcengine 三档配额 ========== */
+.volcengine-card { padding: 12px 14px; }
+
+.volc-quota-row { margin-bottom: 12px; }
+.volc-quota-row:last-child { margin-bottom: 0; }
+
+.volc-quota-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.volc-quota-label { font-size: 13px; color: #555; }
+.volc-quota-pct {
+  font-size: 14px;
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+.volc-quota-pct.warning { color: #f0ad4e; }
+.volc-quota-pct.danger { color: #d9534f; }
+
+.volc-quota-bar {
+  height: 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.volc-quota-fill {
+  height: 100%;
+  background: #4a90e2;
+  transition: width 0.3s ease;
+}
+.volc-quota-fill.warning { background: #f0ad4e; }
+.volc-quota-fill.danger { background: #d9534f; }
+
+.volc-quota-reset {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.volcengine-card.is-expired .volc-quota-fill { background: #bbb; }
+.volcengine-card.is-expired .volc-quota-pct,
+.volcengine-card.is-expired .volc-quota-pct.warning,
+.volcengine-card.is-expired .volc-quota-pct.danger { color: #999; }
