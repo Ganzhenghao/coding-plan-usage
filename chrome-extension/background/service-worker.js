@@ -36,7 +36,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     getXiaomiCookies: handleGetXiaomiCookies,
     fetchXiaomiUsage: handleFetchXiaomiUsage,
     xiaomiAutoLogin: handleXiaomiAutoLogin,
-    getVolcengineToken: handleGetVolcengineToken,
     fetchVolcengineUsage: handleFetchVolcengineUsage,
   };
 
@@ -310,80 +309,25 @@ async function handleFetchXiaomiUsage({ cookies }) {
   }
 }
 
-// 从 console.volcengine.com 获取 csrfToken
-async function handleGetVolcengineToken() {
-  const cookie = await chrome.cookies.get({
-    url: 'https://console.volcengine.com',
-    name: 'csrfToken',
-  });
-  if (cookie && cookie.value) {
-    return { token: cookie.value };
-  }
-  return { error: 'NOT_LOGGED_IN' };
-}
-
 // 请求火山方舟 Coding Plan 用量 API
+// 火山方舟的 csrfToken 是 partitioned cookie,service worker 跨站请求拿不到,
+// 必须委托给已注入 console.volcengine.com 页面的 content script 在页面上下文里
+// 发起 fetch(同站 first-party,能带上正确的 partitioned cookie)。
 async function handleFetchVolcengineUsage() {
-  const tokenResult = await handleGetVolcengineToken();
-  if (tokenResult.error || !tokenResult.token) {
+  const tabs = await chrome.tabs.query({ url: 'https://console.volcengine.com/*' });
+  if (tabs.length === 0) {
+    // 没有打开控制台页面,无法在页面上下文请求 —— 提示用户前往
     return { error: 'LOGIN_REQUIRED' };
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-
   try {
-    const resp = await fetch(
-      'https://console.volcengine.com/api/top/ark/cn-beijing/2024-01-01/GetCodingPlanUsage',
-      {
-        method: 'POST',
-        headers: {
-          accept: 'application/json, text/plain, */*',
-          'content-type': 'application/json',
-          'x-csrf-token': tokenResult.token,
-        },
-        body: '{}',
-        credentials: 'include',
-        signal: controller.signal,
-      }
-    );
-    clearTimeout(timeoutId);
-
-    if (resp.status === 401 || resp.status === 403) {
-      return { error: 'LOGIN_REQUIRED' };
-    }
-
-    const raw = await resp.json();
-    if (raw?.ResponseMetadata?.Error) {
-      return { error: 'LOGIN_REQUIRED' };
-    }
-
-    const result = raw?.Result;
-    if (!result || !Array.isArray(result.QuotaUsage)) {
-      return { error: 'BAD_FORMAT' };
-    }
-
-    const quotas = result.QuotaUsage
-      .filter((q) => q && typeof q.Level === 'string')
-      .map((q) => ({
-        level: q.Level,
-        percent: typeof q.Percent === 'number' ? q.Percent : 0,
-        resetAt: typeof q.ResetTimestamp === 'number' ? q.ResetTimestamp : 0,
-      }));
-
-    return {
-      data: {
-        status: result.Status || 'Unknown',
-        updatedAt: result.UpdateTimestamp || 0,
-        quotas,
-      },
-    };
+    const resp = await chrome.tabs.sendMessage(tabs[0].id, {
+      type: 'fetchVolcengineUsageFromPage',
+    });
+    return resp || { error: 'BAD_FORMAT' };
   } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
-      throw new Error('TIMEOUT');
-    }
-    throw err;
+    // content script 未注入(扩展刚装/页面在 manifest 改动前已打开) —— 按未登录处理
+    return { error: 'LOGIN_REQUIRED' };
   }
 }
 

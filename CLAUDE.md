@@ -47,7 +47,7 @@ GLM 和 MiniMax 面板各自有独立的状态切换（`showGLMState` / `showMin
 - GLM 用量：`GET https://bigmodel.cn/api/monitor/usage/quota/limit`（需 `authorization` header）
 - MiniMax Token：`GET https://www.minimaxi.com/backend/token?token_type=4`（需 Cookie）
 - MiniMax 用量：`GET https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`（需 Bearer Token）
-- Volcengine 用量：`POST https://console.volcengine.com/api/top/ark/cn-beijing/2024-01-01/GetCodingPlanUsage`（需 `x-csrf-token` header，token 取自 `csrfToken` Cookie；返回 `QuotaUsage[]`，含 `session/weekly/monthly` 三档百分比与重置时间）
+- Volcengine 用量：`POST https://console.volcengine.com/api/top/ark/cn-beijing/2024-01-01/GetCodingPlanUsage`（需 `x-csrf-token` header）。**注意**：火山方舟的 `csrfToken` 是 partitioned cookie，service worker 跨站请求拿不到，必须由 `content/volcengine-content.js` 在 `console.volcengine.com` 页面上下文里发起 fetch（同站 first-party 才能带上正确 cookie）。service worker 通过 `chrome.tabs.query` 找到已打开的控制台 tab，再用 `chrome.tabs.sendMessage` 委托 content script 取数；未打开控制台时返回 `LOGIN_REQUIRED`。返回 `QuotaUsage[]`，含 `session/weekly/monthly` 三档百分比与重置时间。
 
 ## 注意事项
 

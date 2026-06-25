@@ -25,6 +25,11 @@
       "matches": ["https://platform.deepseek.com/*"],
       "js": ["content/deepseek-content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://console.volcengine.com/*"],
+      "js": ["content/volcengine-content.js"],
+      "run_at": "document_idle"
     }
   ],
   "action": {
