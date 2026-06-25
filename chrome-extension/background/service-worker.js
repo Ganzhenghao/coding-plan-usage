@@ -545,6 +545,22 @@ async function checkUsageInBackground() {
       const volcResult = await handleFetchVolcengineUsage();
       if (volcResult.data && Array.isArray(volcResult.data.quotas)) {
         const session = volcResult.data.quotas.find((q) => q.level === 'session');
+
+        // 跨周期重置:对比上次缓存中的 session.resetAt
+        const prev = await chrome.storage.local.get(['volcengineCache', 'notifiedAlerts']);
+        const prevSession = prev.volcengineCache?.quotas?.find((q) => q.level === 'session');
+        if (prevSession && session && prevSession.resetAt && session.resetAt && prevSession.resetAt !== session.resetAt) {
+          const notified = { ...(prev.notifiedAlerts || {}) };
+          let touched = false;
+          for (const key of Object.keys(notified)) {
+            if (key.startsWith('Volcengine-会话-')) {
+              delete notified[key];
+              touched = true;
+            }
+          }
+          if (touched) await chrome.storage.local.set({ notifiedAlerts: notified });
+        }
+
         if (session) {
           usageItems.push({ name: 'Volcengine-会话', percentage: Math.round(session.percent) });
         }

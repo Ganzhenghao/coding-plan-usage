@@ -751,6 +751,21 @@ async function fetchVolcengineData() {
     return;
   }
 
+  const prev = await chrome.storage.local.get(['volcengineCache', 'notifiedAlerts']);
+  const prevSession = prev.volcengineCache?.quotas?.find((q) => q.level === 'session');
+  const nextSession = result.data.quotas?.find((q) => q.level === 'session');
+  if (prevSession && nextSession && prevSession.resetAt && nextSession.resetAt && prevSession.resetAt !== nextSession.resetAt) {
+    const notified = { ...(prev.notifiedAlerts || {}) };
+    let touched = false;
+    for (const key of Object.keys(notified)) {
+      if (key.startsWith('Volcengine-会话-')) {
+        delete notified[key];
+        touched = true;
+      }
+    }
+    if (touched) await chrome.storage.local.set({ notifiedAlerts: notified });
+  }
+
   renderVolcengineData(result.data);
   chrome.storage.local.set({ volcengineCache: result.data, volcengineCacheTime: Date.now() });
 }

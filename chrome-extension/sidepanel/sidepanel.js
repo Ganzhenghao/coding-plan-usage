@@ -438,6 +438,22 @@ async function fetchVolcengine() {
     return;
   }
 
+  const prev = await chrome.storage.local.get(['volcengineCache', 'notifiedAlerts']);
+  const prevSession = prev.volcengineCache?.quotas?.find((q) => q.level === 'session');
+  const nextSession = result.data.quotas?.find((q) => q.level === 'session');
+  if (prevSession && nextSession && prevSession.resetAt && nextSession.resetAt && prevSession.resetAt !== nextSession.resetAt) {
+    // 跨周期了,清空 session 档的去重标志,让 checkThresholds 重新走流程
+    const notified = { ...(prev.notifiedAlerts || {}) };
+    let touched = false;
+    for (const key of Object.keys(notified)) {
+      if (key.startsWith('Volcengine-会话-')) {
+        delete notified[key];
+        touched = true;
+      }
+    }
+    if (touched) await chrome.storage.local.set({ notifiedAlerts: notified });
+  }
+
   await chrome.storage.local.set({ volcengineCache: result.data, volcengineCacheTime: Date.now() });
   renderVolcengine(result.data);
 }
