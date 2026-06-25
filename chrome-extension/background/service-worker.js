@@ -8,7 +8,7 @@ const ALERT_THRESHOLD_KEYS = ['alertThreshold1', 'alertThreshold2', 'alertThresh
 const DEFAULT_ALERT_THRESHOLDS = [25, 50, 75];
 
 // 套餐平台标识
-const PLAN_KEYS = ['glm', 'minimax', 'deepseek', 'xiaomi'];
+const PLAN_KEYS = ['glm', 'minimax', 'deepseek', 'xiaomi', 'volcengine'];
 
 // 判断某平台是否启用(undefined 视为启用,默认全开)
 function isPlanEnabled(enabledPlans, key) {
@@ -36,6 +36,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     getXiaomiCookies: handleGetXiaomiCookies,
     fetchXiaomiUsage: handleFetchXiaomiUsage,
     xiaomiAutoLogin: handleXiaomiAutoLogin,
+    getVolcengineToken: handleGetVolcengineToken,
+    fetchVolcengineUsage: handleFetchVolcengineUsage,
   };
 
   const handler = handlers[message.type];
@@ -308,6 +310,83 @@ async function handleFetchXiaomiUsage({ cookies }) {
   }
 }
 
+// 从 console.volcengine.com 获取 csrfToken
+async function handleGetVolcengineToken() {
+  const cookie = await chrome.cookies.get({
+    url: 'https://console.volcengine.com',
+    name: 'csrfToken',
+  });
+  if (cookie && cookie.value) {
+    return { token: cookie.value };
+  }
+  return { error: 'NOT_LOGGED_IN' };
+}
+
+// 请求火山方舟 Coding Plan 用量 API
+async function handleFetchVolcengineUsage() {
+  const tokenResult = await handleGetVolcengineToken();
+  if (tokenResult.error || !tokenResult.token) {
+    return { error: 'LOGIN_REQUIRED' };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+  try {
+    const resp = await fetch(
+      'https://console.volcengine.com/api/top/ark/cn-beijing/2024-01-01/GetCodingPlanUsage',
+      {
+        method: 'POST',
+        headers: {
+          accept: 'application/json, text/plain, */*',
+          'content-type': 'application/json',
+          'x-csrf-token': tokenResult.token,
+        },
+        body: '{}',
+        credentials: 'include',
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+
+    if (resp.status === 401 || resp.status === 403) {
+      return { error: 'LOGIN_REQUIRED' };
+    }
+
+    const raw = await resp.json();
+    if (raw?.ResponseMetadata?.Error) {
+      return { error: 'LOGIN_REQUIRED' };
+    }
+
+    const result = raw?.Result;
+    if (!result || !Array.isArray(result.QuotaUsage)) {
+      return { error: 'BAD_FORMAT' };
+    }
+
+    const quotas = result.QuotaUsage
+      .filter((q) => q && typeof q.Level === 'string')
+      .map((q) => ({
+        level: q.Level,
+        percent: typeof q.Percent === 'number' ? q.Percent : 0,
+        resetAt: typeof q.ResetTimestamp === 'number' ? q.ResetTimestamp : 0,
+      }));
+
+    return {
+      data: {
+        status: result.Status || 'Unknown',
+        updatedAt: result.UpdateTimestamp || 0,
+        quotas,
+      },
+    };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    throw err;
+  }
+}
+
 // ========== 后台预警监控 ==========
 
 // 初始化定时任务
@@ -457,6 +536,23 @@ async function checkUsageInBackground() {
       }
     } catch (err) {
       console.error('[CodingPlan] Xiaomi 后台检查失败:', err);
+    }
+  }
+
+  // 检查 Volcengine 用量（仅 session 档参与预警）
+  if (isPlanEnabled(enabledPlans, 'volcengine')) {
+    try {
+      const volcResult = await handleFetchVolcengineUsage();
+      if (volcResult.data && Array.isArray(volcResult.data.quotas)) {
+        const session = volcResult.data.quotas.find((q) => q.level === 'session');
+        if (session) {
+          usageItems.push({ name: 'Volcengine-会话', percentage: Math.round(session.percent) });
+        }
+        // 更新缓存
+        await chrome.storage.local.set({ volcengineCache: volcResult.data, volcengineCacheTime: Date.now() });
+      }
+    } catch (err) {
+      console.error('[CodingPlan] Volcengine 后台检查失败:', err);
     }
   }
 
