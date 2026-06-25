@@ -296,17 +296,16 @@ function renderDeepseek(data) {
   const balance = parseFloat(bizData.normal_wallets?.[0]?.balance || '0');
   const tokenEstimation = parseInt(bizData.total_available_token_estimation) || 0;
   const monthlyUsage = parseInt(bizData.monthly_token_usage) || 0;
-  const total = monthlyUsage + tokenEstimation;
-  const pct = total > 0 ? Math.round((monthlyUsage / total) * 100) : 0;
-  const cls = getProgressClass(pct);
+  const monthlyCost = parseFloat(bizData.monthly_costs?.[0]?.amount || '0');
+  const cls = balance <= 0 ? 'danger' : balance <= 5 ? 'warn' : '';
 
   const html = `
     <div class="sb-main-row">
-      <span class="sb-main-label">余额消耗</span>
-      <span class="sb-main-pct${cls ? ' ' + cls : ''}">${pct}%</span>
+      <span class="sb-main-label">账户余额</span>
+      <span class="sb-main-pct${cls ? ' ' + cls : ''}">¥${balance.toFixed(2)}</span>
     </div>
-    <div class="sb-progress-bar"><div class="sb-progress-fill${cls ? ' ' + cls : ''}" style="width:${pct}%"></div></div>
-    <div class="sb-meta">¥${balance.toFixed(2)} · 本月 ${formatTokenCount(monthlyUsage)} tokens</div>
+    <div class="sb-meta">估算可用 ${formatTokenCount(tokenEstimation)} tokens</div>
+    <div class="sb-meta">本月已用 ${formatTokenCount(monthlyUsage)} tokens · 花费 ¥${monthlyCost.toFixed(2)}</div>
   `;
   document.querySelector('#sbCardDeepseek .sb-content').innerHTML = html;
   showCardState('sbCardDeepseek', 'content', { dotClass: cls });
