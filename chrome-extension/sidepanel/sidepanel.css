@@ -241,6 +241,7 @@ body {
 }
 
 .sb-mini-fill {
+  display: block;
   height: 100%;
   background: #3cb371;
   width: 0%;
