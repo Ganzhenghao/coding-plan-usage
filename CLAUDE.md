@@ -36,6 +36,7 @@ CodingPlan 用量查询 — 一款 Chrome 浏览器扩展（Manifest V3），用
 - `autoRefreshEnabled` / `autoRefreshInterval` — 自动刷新配置
 - `alertEnabled` / `alertThreshold1` / `alertThreshold2` / `alertThreshold3` / `notifiedAlerts` — 用量预警配置
 - `enabledPlans` — 各套餐启用开关(默认全开,关闭后 UI 隐藏且前后端不请求该平台)
+- `volcengineCache` — Volcengine 上次查询结果缓存
 
 ### UI 状态机
 
@@ -46,6 +47,7 @@ GLM 和 MiniMax 面板各自有独立的状态切换（`showGLMState` / `showMin
 - GLM 用量：`GET https://bigmodel.cn/api/monitor/usage/quota/limit`（需 `authorization` header）
 - MiniMax Token：`GET https://www.minimaxi.com/backend/token?token_type=4`（需 Cookie）
 - MiniMax 用量：`GET https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`（需 Bearer Token）
+- Volcengine 用量：`POST https://console.volcengine.com/api/top/ark/cn-beijing/2024-01-01/GetCodingPlanUsage`（需 `x-csrf-token` header，token 取自 `csrfToken` Cookie；返回 `QuotaUsage[]`，含 `session/weekly/monthly` 三档百分比与重置时间）
 
 ## 注意事项
 

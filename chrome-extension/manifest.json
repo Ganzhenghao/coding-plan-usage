@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CodingPlan 用量查询",
   "version": "1.0.0",
-  "description": "查询智谱 GLM、MiniMax、DeepSeek 和 Xiaomi 编码套餐的用量和余额信息",
+  "description": "查询智谱 GLM、MiniMax、DeepSeek、Xiaomi 和 Volcengine 编码套餐的用量和余额信息",
   "permissions": [
     "cookies",
     "storage",
@@ -17,7 +17,8 @@
     "https://platform.minimaxi.com/*",
     "https://platform.deepseek.com/*",
     "https://platform.xiaomimimo.com/*",
-    "https://account.xiaomi.com/*"
+    "https://account.xiaomi.com/*",
+    "https://console.volcengine.com/*"
   ],
   "content_scripts": [
     {
